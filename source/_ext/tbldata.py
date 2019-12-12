@@ -47,7 +47,6 @@ def save_directive_info(env, key, info):
     assert key in ('tbldata', 'tblrender'), "save_directory_info, invalid key: %s" % key
     if not hasattr(env, envinfokey):
         print("*** initializing envinfokey *** ")
-        import pdb; pdb.set_trace()
         initial_value = {"tbldata":[], "tblrender":[]}
         setattr(env, envinfokey, initial_value)
     print("saving info in env.%s[%s]" % (envinfokey, key))
@@ -65,11 +64,11 @@ def make_tds(envinfo):
     #
     # Input (envinfo) contains:
     #
-    # {'tbldata': [<tbldata_info1>, <..info2>, ...], 'tblrender': [ <tblrender_info1>, <..info2> ...]}
-    # <tbldata_info> = { "docname": self.env.docname, "lineno": self.lineno, "tbl_name":tbl_name,
+    # {'tbldata': [<ddi1>, <ddi2>, ...], 'tblrender': [ <rdi1>, <rdi2> ...]}
+    # <ddi> ("data directive info") == { "docname": self.env.docname, "lineno": self.lineno, "tbl_name":tbl_name,
     #        "valrefs":valrefs, "target":target_node, "tbldata_node": tbldata_node.deepcopy() }
     #
-    # <tblrender_info> = {"docname": self.env.docname, "tbl_name":tbl_name, "rows":rows, "cols":cols,
+    # <rdi> ("render directive info") == {"docname": self.env.docname, "tbl_name":tbl_name, "rows":rows, "cols":cols,
     #         "target": target_node, "tblrender_node": tblrender_node.deepcopy()}
     #
     # Output (tds) - table data sorted, contains:
@@ -78,18 +77,18 @@ def make_tds(envinfo):
     #               # used when building the table 
     #     { <table_name>: { <row>: { <col>: [ <tde1>, <tde2> ... ], ... }, ... }, ... }
     #       where each tde (table data entry) is: 
-    #          { "value": <value>, "reference": <reference>, "tbldata_info": <entry in envinfo["tbldata"]> }, 
+    #          { "value": <value>, "reference": <reference>, "ddi": <entry in envinfo["tbldata"]> }, 
     #
     # { "tblrender":  # information from each tblrender directive, used for making link from tbldata directive node to table
-    #     { <table_name>: [ <tblrender_info>, ...], ... }
+    #     { <table_name>: [ <rdi>, ...], ... }
     #
     tds = {"tbldata": {}, "tblrender": {} }
     # convert envinfo["tbldata"] to tds["tbldata"]
     print("make tds, envinfo")
     pp.pprint(envinfo)
-    for tbldata_info in envinfo["tbldata"]:
-        table_name = tbldata_info["tbl_name"]
-        valrefs = tbldata_info["valrefs"]
+    for ddi in envinfo["tbldata"]:
+        table_name = ddi["tbl_name"]
+        valrefs = ddi["valrefs"]
         # valrefs has format:
         # <list of: <row, col, val, reference> in JSON format, without outer enclosing []>                                                             
         # example:
@@ -99,7 +98,7 @@ def make_tds(envinfo):
         valrefs_decoded = json.loads( "[" + valrefs + "]" )
         for data_quad in valrefs_decoded:
             row, col, value, reference = data_quad
-            tde = {"value": value, "reference":reference, "tbldata_info": tbldata_info }
+            tde = {"value": value, "reference":reference, "ddi": ddi }
             if table_name not in tds["tbldata"]:
                 tds["tbldata"][table_name] = {}
             if row not in tds["tbldata"][table_name]:
@@ -108,11 +107,11 @@ def make_tds(envinfo):
                 tds["tbldata"][table_name][row][col] = []
             tds["tbldata"][table_name][row][col].append(tde)
     # convert envinfo["tblrender"] to tds["tblrender"]
-    for tblrender_info in envinfo["tblrender"]:
-        table_name = tblrender_info["tbl_name"]
+    for rdi in envinfo["tblrender"]:
+        table_name = rdi["tbl_name"]
         if table_name not in tds["tblrender"]:
             tds["tblrender"][table_name] = []
-        tds["tblrender"][table_name].append(tblrender_info)
+        tds["tblrender"][table_name].append(rdi)
     return tds
 
 
@@ -241,42 +240,44 @@ def process_tbldata_nodes(app, doctree, fromdocname):
     env = app.builder.env
     tds = make_tds(getattr(env, envinfokey))
     # tds has format:
-    #
-    # {'tbldata': [<tbldata_info1>, <..info2>, ...], 'tblrender': [ <tblrender_info1>, <..info2> ...]}
-    # <tbldata_info>:  # information from each tbldata directive, organized by table_name, row, col.
-    #                  # used when building the table 
+    # {
+    #   "tbldata":  # information from each tbldata directive, organized by table_name, row, col.
+    #               # used when building the table 
     #     { <table_name>: { <row>: { <col>: [ <tde1>, <tde2> ... ], ... }, ... }, ... }
     #       where each tde (table data entry) is: 
-    #          { "value": <value>, "reference": <reference>, "tbldata_info": <entry in envinfo["tbldata"]> }, 
+    #          { "value": <value>, "reference": <reference>, "ddi": <ddi> }, 
     #
-    # { "tblrender":  # information from each tblrender directive, used for making link from tbldata directive node to table
-    #     { <table_name>: [ <tblrender_info>, ...], ... }
+    #   "tblrender":  # information from each tblrender directive, used for making link from tbldata directive node to table
+    #     { <table_name>: [ <rdi>, ...], ... }
+    # }
+    # where:
     #
-    # <tblrender_info> = {"docname": self.env.docname, "tbl_name":tbl_name, "rows":rows, "cols":cols,
-    #         "target": target_node, "tblrender_node": tblrender_node.deepcopy()}
-    #
-    # <tbldata_info> = { "docname": self.env.docname, "lineno": self.lineno, "tbl_name":tbl_name,
+    # <ddi> ("data directive info") == { "docname": self.env.docname, "lineno": self.lineno, "tbl_name":tbl_name,
     #        "valrefs":valrefs, "target":target_node, "tbldata_node": tbldata_node.deepcopy() }
     #
-    
-
-for table_name in tds["tblrender"]:
-        for render_info in tds["tblrender"][table_name]:
-            
-            
-        
-    return
+    # <rdi> ("render directive info") == {"docname": self.env.docname, "tbl_name":tbl_name, "rows":rows, "cols":cols,
+    #         "target": target_node, "tblrender_node": tblrender_node.deepcopy()}
 
 
-    # { "tbldata":  # information from each tbldata directive, organized by table_name, row, col.                                                               
-    #               # used when building the table                                                                                                              
-    #     { <table_name>: { <row>: { <col>: [ <tde1>, <tde2> ... ], ... }, ... }, ... }                                                                         
-    #       where each tde (table data entry) is:                                                                                                               
-    #          { "value": <value>, "reference": <reference>, "tbldata_info": <entry in envinfo["tbldata"]> },                                                   
-    #                                                                                                                                                           
-    # { "tblrender":  # information from each tblrender directive, used for making link from tbldata directive node to table                                    
-    #     { <table_name>: [ <tblrender_info>, ...], ... }                                                                                                       
-    #              
+    for table_name in tds["tblrender"]:
+        for rdi in tds["tblrender"][table_name]:
+            # for now, just output text having all the information
+            tblrender_node = rdi["tblrender_node"]
+            rows = rdi["rows"]
+            cols = rdi["cols"]
+            multvals = []
+            for row in tds["tbldata"][table_name]:
+                for col in tds["tbldata"][table_name][row]:
+                    valrefs = tds["tbldata"][table_name][row]
+                    entry = "row=%s col=%s valrefs=%s" % (row, col, valrefs)
+                    multvals.append(entry)
+            multvals = "\n".join(multvals)
+            description = "table: %s\nrows: %s\ncols: %s\nvals: %s\n" % (table_name, rows, cols, multvals)
+            para = nodes.paragraph()
+            para += nodes.Text(description, description)
+            content = [ para, ]
+            import pdb; pdb.set_trace()
+            tblrender_node.replace_self(content)
 
 
 
@@ -295,7 +296,6 @@ def process_tbldata_nodes_old(app, doctree, fromdocname):
             continue
 
         content = []
-        import pdb; pdb.set_trace()
 
         for tbldata_info in env.tbldata_all_tbldata:
             para = nodes.paragraph()
