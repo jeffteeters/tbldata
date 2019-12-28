@@ -13,6 +13,7 @@ Welcome to pc_data_table's documentation!
    somefile.rst
    someotherfile.rst
    stellate
+   references/somethirdfile.rst
 
 
 Hello world.  Below is a data table.

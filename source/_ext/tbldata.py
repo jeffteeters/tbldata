@@ -130,7 +130,7 @@ def purge_directive_info(app, env, docname):
 
 
 def make_target_node(env):
-    target_id = env.new_serialno("tbldata")
+    target_id = 'tbldata-%d' % env.new_serialno("tbldata")
     target_node = nodes.target('','',ids=[target_id])
     return target_node
 
@@ -227,7 +227,7 @@ class TbldataDirective(SphinxDirective):
 
 
 
-def process_tbldata_nodes(app, doctree, fromdocname):
+def replace_tbldata_and_tblrender_nodes(app, doctree, docname):
     # Does the following:
     #
     # * Replace all tblrender nodes with a table of the data with values in the table
@@ -237,6 +237,7 @@ def process_tbldata_nodes(app, doctree, fromdocname):
     #   If the table appears in more than one location, for now, just pick the first location
 
     global envinfokey
+    print("starting replace_tbldata_and_tblrender_nodes, docname='%s'" % docname)
     env = app.builder.env
     tds = make_tds(getattr(env, envinfokey))
     # tds has format:
@@ -258,6 +259,31 @@ def process_tbldata_nodes(app, doctree, fromdocname):
     # <rdi> ("render directive info") == {"docname": self.env.docname, "tbl_name":tbl_name, "rows":rows, "cols":cols,
     #         "target": target_node, "tblrender_node": tblrender_node.deepcopy()}
 
+    print("visiting target nodes")
+    for node in doctree.traverse(nodes.target):
+        print ("source=%s" % node.source)
+        import pdb; pdb.set_trace()
+        # if 'refid' in node and node['refid'].startswith('tbldata-'):
+        #     refid = node['refid']
+        #     # found target node created by this module, following node should be tblrender or tbldata
+        #     # get following node
+        #     node_traverse = node.traverse(include_self=False, descend = False, siblings = True)
+        #     next_node = node_traverse[0]
+        #     if isinstance(next_node, tblrender):
+        #         print("Found %s, followed by tblrender" % refid)
+        #     elif isinstance(next_node, tbldata):
+        #         print("Found %s, followed by tbldata" % refid)
+        #     else:
+        #         print("Unknown node found after %s, %s" % (refid, type(next_node)))
+        #         import pdb; pdb.set_trace()
+
+    print("visiting tblrender nodes")
+    for node in doctree.traverse(tblrender):
+        import pdb; pdb.set_trace()
+
+    print("visiting tbldata nodes")
+    for node in doctree.traverse(tbldata):
+        import pdb; pdb.set_trace()   
 
     for table_name in tds["tblrender"]:
         for rdi in tds["tblrender"][table_name]:
@@ -282,6 +308,7 @@ def process_tbldata_nodes(app, doctree, fromdocname):
 
 
 def process_tbldata_nodes_old(app, doctree, fromdocname):
+    assert false
     if not app.config.tbldata_include_tbldata:
         for node in doctree.traverse(tbldata):
             node.parent.remove(node)
@@ -324,6 +351,7 @@ def process_tbldata_nodes_old(app, doctree, fromdocname):
         node.replace_self(content)
 
 def build_test_table(app, doctree, fromdocname):
+    print("in build_test_table")
     rst = """
 .. -*- mode: rst -*-
 
@@ -358,7 +386,8 @@ For more data see :ref:`stellate` link.
 
 
 def setup(app):
-    app.add_config_value('tbldata_include_tbldata', False, 'html')
+    # app.add_config_value('tbldata_include_tbldata', False, 'html')
+    print("Starting setup in tbldata.py")
 
     app.add_node(tblrender)
     app.add_node(tbldata,
@@ -368,7 +397,7 @@ def setup(app):
 
     app.add_directive('tbldata', TbldataDirective)
     app.add_directive('tblrender', TblrenderDirective)
-    app.connect('doctree-resolved', process_tbldata_nodes)
+    app.connect('doctree-resolved', replace_tbldata_and_tblrender_nodes)
     app.connect('env-purge-doc', purge_directive_info)
 
     return {
