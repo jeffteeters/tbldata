@@ -10,7 +10,7 @@ from sphinx.util.docutils import SphinxDirective
 from docutils.parsers.rst import directives
 from docutils.statemachine import ViewList
 from sphinx.util.nodes import nested_parse_with_titles
-
+import sys
 import re
 import pprint
 pp = pprint.PrettyPrinter(indent=4)
@@ -75,6 +75,82 @@ def make_tds(envinfo):
     #
     # { "tbldata":  # information from each tbldata directive, organized by table_name, row, col.
     #               # used when building the table 
+    #     { <table_name>: { <row>: { <col>: [ <ddi-a>, <ddi-b> ... ], ... }, ... }, ... }
+    #       where each <ddi> is the structure used in envinfo (but now accessable via row and column)
+    #
+    # { "tblrender":  # information from each tblrender directive, used for making link from tbldata directive node to table
+    #     { <table_name>: [ <rdi>, ...], ... }
+    #
+    tds = {"tbldata": {}, "tblrender": {} }
+    # convert envinfo["tblrender"] to tds["tblrender"]
+    for rdi in envinfo["tblrender"]:
+        table_name = rdi["tbl_name"]
+        if table_name not in tds["tblrender"]:
+            tds["tblrender"][table_name] = []
+        tds["tblrender"][table_name].append(rdi)
+    # todo: check to make sure if more than one tblrender of the same table, the rows and cols match
+    print("tds before adding tbldata is:")
+    pp.pprint(tds)
+    # convert envinfo["tbldata"] to tds["tbldata"]
+    print("starting make tds, envinfo=")
+    pp.pprint(envinfo)
+    for ddi in envinfo["tbldata"]:
+        table_name = ddi["tbl_name"]
+        docname = ddi["docname"]
+        lineno = ddi["lineno"]
+        target = ddi["target"]
+        valrefs = ddi["valrefs"]
+        if table_name not in tds["tblrender"]:
+            print("Error: Table '%s' referenced at %s line %s, but is not defined in a tblrender directive" % (
+                table_name, docname, lineno))
+            sys.exit("Aborting")
+        # valrefs has format:
+        # <list of: <row, col, val, reference> in JSON format, without outer enclosing []>                                                             
+        # example:
+        # ["basket", "cat", 234, "Albus-1989"], ["basket", "rat", 298, "Jones-2002"]
+        # convert to JSON (add outer []) then decode to get values
+        print("valrefs=%s" % valrefs)
+        # valrefs_decoded = json.loads( "[" + valrefs + "]" )
+        for data_quad in valrefs:
+            row, col, value, reference = data_quad
+            # make sure table entry exists for referenced table, row, col
+            if row not in tds["tblrender"][table_name][0]["row_labels"]:
+                print("Error: Row '%s' in table '%s' referenced at %s line %s, but is not "
+                    "included in tblrender directive" % (row, table_name, docname, lineno))
+                sys.exit("Aborting")
+            if col not in tds["tblrender"][table_name][0]["col_labels"]:
+                print("Error: Col '%s' in table '%s' referenced at %s line %s, but is not "
+                    "included in tblrender directive" % (col, table_name, docname, lineno))
+                sys.exit("Aborting")
+            # everything is defined in a tblrender directive, add this to tds["tbldata"]
+            if table_name not in tds["tbldata"]:
+                tds["tbldata"][table_name] = {}
+            if row not in tds["tbldata"][table_name]:
+                tds["tbldata"][table_name][row] = {}
+            if col not in tds["tbldata"][table_name][row]:
+                tds["tbldata"][table_name][row][col] = []
+            ref_info = {"docname": docname, "lineno": lineno, "target":target, "valref": data_quad}
+            tds["tbldata"][table_name][row][col].append(ref_info)
+            # tds["tbldata"][table_name][row][col].append(tde)
+            # tds["tbldata"][table_name][row][col].append(ddi)
+    return tds
+
+def make_tds_old(envinfo):
+    # convert envinfo to nested structures that are used to make the tables and links
+    #
+    # Input (envinfo) contains:
+    #
+    # {'tbldata': [<ddi1>, <ddi2>, ...], 'tblrender': [ <rdi1>, <rdi2> ...]}
+    # <ddi> ("data directive info") == { "docname": self.env.docname, "lineno": self.lineno, "tbl_name":tbl_name,
+    #        "valrefs":valrefs, "target":target_node, "tbldata_node": tbldata_node.deepcopy() }
+    #
+    # <rdi> ("render directive info") == {"docname": self.env.docname, "tbl_name":tbl_name, "rows":rows, "cols":cols,
+    #         "target": target_node, "tblrender_node": tblrender_node.deepcopy()}
+    #
+    # Output (tds) - table data sorted, contains:
+    #
+    # { "tbldata":  # information from each tbldata directive, organized by table_name, row, col.
+    #               # used when building the table 
     #     { <table_name>: { <row>: { <col>: [ <tde1>, <tde2> ... ], ... }, ... }, ... }
     #       where each tde (table data entry) is: 
     #          { "value": <value>, "reference": <reference>, "ddi": <entry in envinfo["tbldata"]> }, 
@@ -84,7 +160,7 @@ def make_tds(envinfo):
     #
     tds = {"tbldata": {}, "tblrender": {} }
     # convert envinfo["tbldata"] to tds["tbldata"]
-    print("make tds, envinfo")
+    print("starting make tds, envinfo=")
     pp.pprint(envinfo)
     for ddi in envinfo["tbldata"]:
         table_name = ddi["tbl_name"]
@@ -168,10 +244,18 @@ class TblrenderDirective(SphinxDirective):
         tbl_name = get_table_name(self)
         rows = self.options.get('rows')
         cols = self.options.get('cols')
+        rows_decoded = json.loads( "[" + rows + "]" )
+        row_title = rows_decoded[0]
+        row_labels = rows_decoded[1:]
+        cols_decoded = json.loads( "[" + cols + "]" )
+        col_title = cols_decoded[0]
+        col_labels = cols_decoded[1:]
         target_node = make_target_node(self.env)
         tblrender_node = tblrender('')
-        directive_info = {"docname": self.env.docname, "tbl_name":tbl_name, "rows":rows, "cols":cols,
-             "target": target_node, "tblrender_node": tblrender_node.deepcopy()}
+        directive_info = {"docname": self.env.docname, "tbl_name":tbl_name, "row_labels":row_labels,
+             "row_title": row_title, "col_labels":col_labels, "col_title": col_title,  "target": target_node}
+        # save directive_info as attribute of object so is easy to retrieve in replace_tbldata_and_tblrender_nodes
+        tblrender_node.directive_info = directive_info
         save_directive_info(self.env, 'tblrender', directive_info)
         # return target_node for later reference from tbldata directive
         # return tblrender_node to be replaced later by content of table
@@ -196,11 +280,13 @@ class TbldataDirective(SphinxDirective):
     def run(self):
         tbl_name = get_table_name(self)
         valrefs = self.options.get('valrefs')
+        valrefs_decoded = json.loads( "[" + valrefs + "]" )
         target_node = make_target_node(self.env)
         tbldata_node = tbldata('')
         directive_info = { "docname": self.env.docname, "lineno": self.lineno, "tbl_name":tbl_name,
-            "valrefs":valrefs, "target":target_node, "tbldata_node": tbldata_node.deepcopy()
-        }
+            "valrefs":valrefs_decoded, "target":target_node} #  "tbldata_node": tbldata_node.deepcopy()
+        # save directive_info as attribute of object so is easy to retrieve in replace_tbldata_and_tblrender_nodes
+        tbldata_node.directive_info = directive_info
         save_directive_info(self.env, 'tbldata', directive_info)
         # generate info to display at directive location using rst so can include citation that uses sphinxbibtex extension, e.g. ":cite:
         rst = "Data for *%s*\n\n%s\n\nSee :cite:`Albus-1989` for details." % (tbl_name, valrefs)
@@ -225,9 +311,62 @@ class TbldataDirective(SphinxDirective):
 #     env.tbldata_all_tbldata = [tbldata for tbldata in env.tbldata_all_tbldata
 #                           if tbldata['docname'] != docname]
 
+def make_docutils_table(header, colwidths, data, hasLinks=False):
+    # hasLinks set True if nodes made before call
+    # from:
+    # https://agateau.com/2015/docutils-snippets/
+    # header = ('Product', 'Unit Price', 'Quantity', 'Price')
+    #   colwidths = (2, 1, 1, 1)
+    #    data = [
+    #        ('Coffee', '2', '2', '4'),
+    #        ('Orange Juice', '3', '1', '3'),
+    #        ('Croissant', '1.5', '2', '3'),
+    #    ]
+    table = nodes.table()
 
+    tgroup = nodes.tgroup(cols=len(header))
+    table += tgroup
+    for colwidth in colwidths:
+        tgroup += nodes.colspec(colwidth=colwidth)
 
-def replace_tbldata_and_tblrender_nodes(app, doctree, docname):
+    thead = nodes.thead()
+    tgroup += thead
+    thead += create_table_row(header, hasLinks)
+
+    tbody = nodes.tbody()
+    tgroup += tbody
+    for data_row in data:
+        tbody += create_table_row(data_row, hasLinks)
+
+    return [table]
+
+def create_table_row(row_cells, hasLinks):
+    row = nodes.row()
+    for cell in row_cells:
+        entry = nodes.entry()
+        row += entry
+        if hasLinks:
+            try:
+                entry += cell
+            except:
+                print("failed entry += cell")
+                import pdb; pdb.set_trace()
+        else:
+            entry += nodes.paragraph(text=cell)
+    return row
+
+def make_docutils_test_table():
+    header = ('Product', 'Unit Price', 'Quantity', 'Price')
+    colwidths = (2, 1, 1, 1)
+    data = [
+        ('Coffee', '2', '2', '4'),
+        ('Orange Juice', '3', '1', '3'),
+        ('Croissant', '1.5', '2', '3'),
+    ]
+    table = make_docutils_table(header, colwidths, data)
+    return table
+
+def replace_tbldata_and_tblrender_nodes(app, doctree, fromdocname):
     # Does the following:
     #
     # * Replace all tblrender nodes with a table of the data with values in the table
@@ -237,9 +376,12 @@ def replace_tbldata_and_tblrender_nodes(app, doctree, docname):
     #   If the table appears in more than one location, for now, just pick the first location
 
     global envinfokey
-    print("starting replace_tbldata_and_tblrender_nodes, docname='%s'" % docname)
+    print("starting replace_tbldata_and_tblrender_nodes, docname='%s'" % fromdocname)
     env = app.builder.env
     tds = make_tds(getattr(env, envinfokey))
+    # print("tds=")
+    # pp.pprint(tds)
+    # import pdb; pdb.set_trace()
     # tds has format:
     # {
     #   "tbldata":  # information from each tbldata directive, organized by table_name, row, col.
@@ -259,9 +401,106 @@ def replace_tbldata_and_tblrender_nodes(app, doctree, docname):
     # <rdi> ("render directive info") == {"docname": self.env.docname, "tbl_name":tbl_name, "rows":rows, "cols":cols,
     #         "target": target_node, "tblrender_node": tblrender_node.deepcopy()}
 
+    print("visiting tblrender nodes")
+    for node in doctree.traverse(tblrender):
+        di = node.directive_info
+        print ("visiting node, source=%s" % node.source)
+        print ("directive_info=%s" % di)
+        # {'docname': 'index', 'tbl_name': 'num_cells', 'rows': '"Cell type", stellate, grannule',
+        # 'cols': 'Species, cat human', 'target': <target: >}
+        table_name = di['tbl_name']
+        row_title = di["row_title"]
+        row_labels = di["row_labels"]
+        col_title = di["col_title"]
+        col_labels = di["col_labels"]
+        tabledata = []
+        for row_num in range(len(row_labels)):
+            row = row_labels[row_num]
+            rowdata = [nodes.paragraph(text=row), ]
+            for col in col_labels:
+                if row in tds["tbldata"][table_name] and col in tds["tbldata"][table_name][row]:
+                    # entry = []
+                    ddis = tds["tbldata"][table_name][row][col]  # data directive info entries
+                    # print("row=%s, col=%s, ddis=" % (row, col))
+                    # pp.pprint(ddis)
+                    # import pdb; pdb.set_trace()
+                    # each "ddi" (below loop) will look like:
+                    # {"docname": docname, "lineno": lineno, "target":target, "valref": data_quad}
+                    # data_quad format: [<row>, <col>, <value>, <valref>]  - all strings
+                    # example: ["grannule", "cat", "35", "JGran1972"]
+                    para = nodes.paragraph()
+                    first_node = True
+                    for ddi in ddis:
+                        target = ddi["target"]
+                        valref = ddi["valref"]
+                        vrow, vcol, vval, vref = valref
+                        assert vrow == row
+                        assert vcol == col
+                        # create a reference
+                        newnode = nodes.reference('','')
+                        newnode['refdocname'] = ddi['docname']
+                        newnode['refuri'] = app.builder.get_relative_uri(
+                            fromdocname, ddi['docname'])
+                        newnode['refuri'] += '#' + ddi['target']['refid']
+                        innernode = nodes.emphasis(vref, vref)
+                        newnode.append(innernode)
+                        seperator = "; " if not first_node else ""
+                        first_node = False
+                        val_str = "%s%s " % (seperator, vval)
+                        para += nodes.Text(val_str, val_str)
+                        para += newnode
+                        # entry.append("%s--%s" % (vval, vref))
+                    # entry = ", ".join(entry)
+                else:
+                    # entry = ""
+                    print("empty cell found")
+                    sys.exit("Aborting.")
+                    para = nodes.paragraph()
+                # rowdata.append(entry)
+                rowdata.append(para)
+            tabledata.append(rowdata)
+        # colwidths = [1 for i in len(col_labels)]  # make all colwidts 1 for now
+        header = [col_title] + col_labels
+        colwidths = [1] * len(header)  # generates list like: [1, 1, 1, ... ]
+        header_nodes = [nodes.paragraph(text=cell) for cell in header]
+        table = make_docutils_table(header_nodes, colwidths, tabledata, True)
+        # table = make_docutils_table(header, colwidths, tabledata)
+        node.replace_self(table)
+        return
+
+        # scratch (old version of code) below
+        # multvals = []
+        # for row in tds["tbldata"][table_name]:
+        #     for col in tds["tbldata"][table_name][row]:
+        #         valrefs = tds["tbldata"][table_name][row][col]
+        #         entry = "row=%s col=%s valrefs=%s" % (row, col, valrefs)
+        #         multvals.append(entry)
+        # multvals = "\n".join(multvals)
+        # description = "table: %s\nrows: %s\ncols: %s\nvals: %s\n" % (table_name, rows, cols, multvals)
+        # para = nodes.paragraph()
+        # para += nodes.Text(description, description)
+        # test_table = make_docutils_test_table()
+
+        # make_docutils_table(header, colwidths, data)
+        # content = [ para, ] + test_table
+        # node.replace_self(content)
+
+    print("visiting tbldata nodes")
+    for node in doctree.traverse(tbldata):
+        directive_info = node.directive_info
+        # print ("visiting node, source=%s" % node.source)
+        # print ("directive_info=%s" % directive_info)
+        # import pdb; pdb.set_trace()   
+
+    # print('...done vising tblrender and tbldata nodes....')
+    # import pdb; pdb.set_trace()
+    return
+
     print("visiting target nodes")
     for node in doctree.traverse(nodes.target):
-        print ("source=%s" % node.source)
+        directive_info = node.directive_info
+        print ("visiting node, source=%s" % node.source)
+        print ("directive_info=%s" % directive_info)
         import pdb; pdb.set_trace()
         # if 'refid' in node and node['refid'].startswith('tbldata-'):
         #     refid = node['refid']
@@ -277,13 +516,6 @@ def replace_tbldata_and_tblrender_nodes(app, doctree, docname):
         #         print("Unknown node found after %s, %s" % (refid, type(next_node)))
         #         import pdb; pdb.set_trace()
 
-    print("visiting tblrender nodes")
-    for node in doctree.traverse(tblrender):
-        import pdb; pdb.set_trace()
-
-    print("visiting tbldata nodes")
-    for node in doctree.traverse(tbldata):
-        import pdb; pdb.set_trace()   
 
     for table_name in tds["tblrender"]:
         for rdi in tds["tblrender"][table_name]:
@@ -375,7 +607,7 @@ For more data see :ref:`stellate` link.
     result = ViewList()
     rendered_template = rst
     data_source = 'data.json'
-    import pdb; pdb.set_trace()
+    # import pdb; pdb.set_trace()
     for line in rendered_template.splitlines():
         result.append(line, data_source)
     node = nodes.section()

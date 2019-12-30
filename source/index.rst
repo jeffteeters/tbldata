@@ -10,17 +10,17 @@ Welcome to pc_data_table's documentation!
    :maxdepth: 2
    :caption: Contents:
 
-   somefile.rst
-   someotherfile.rst
+   basket
+   grannule
    stellate
-   references/somethirdfile.rst
+   references/references
 
 
 Hello world.  Below is a data table.
 
 .. tblrender:: num_cells
-   :rows: "Cell type", stellate, grannule
-   :cols: Species, cat human
+   :rows: "Cell type", "basket", "grannule", "stellate"
+   :cols: "Species", "cat", "human"
 
 
 Indices and tables

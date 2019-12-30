@@ -1,15 +1,14 @@
-bar
-===
+Basket Cell
+===========
 
-Some more text here...
+Some text about basket cells...
 
-Some intro text here...
 
 .. tbldata::  num_cells     
    :valrefs: ["basket", "cat", 34, "Henery1972"], ["basket", "human", 87, "Smith85"]
 
 
-And some text after that.
+And some text after basket cell text.
 
 
 

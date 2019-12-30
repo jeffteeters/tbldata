@@ -1,10 +1,14 @@
-.. _stellate:
-
-*************
-Stellate Data
-*************
+Stellate Cells
+==============
 
 
-Data about stellate cells are in this file.
+Some stellate cell intro text here...
+
+.. tbldata::  num_cells
+   :valrefs: ["stellate", "cat", 364, "Jones1972"], ["stellate", "human", 987, "Albus85"]
+
+
+
+
 
 
