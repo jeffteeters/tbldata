@@ -35,10 +35,10 @@ def depart_tbldata_node(self, node):
 # utility functions
 def get_table_name(d):
     # get table name from directive d
-    tbl_name = d.arguments[0]
-    assert len(tbl_name) > 0, "%s tbl_name must be present" % d
-    assert re.search('\s', tbl_name) is None, "%s tbl_name must not contain white space: '%s'" % (d, tbl_name)
-    return tbl_name
+    table_name = d.arguments[0]
+    assert len(table_name) > 0, "%s table_name must be present" % d
+    assert re.search('\s', table_name) is None, "%s table_name must not contain white space: '%s'" % (d, table_name)
+    return table_name
 
 envinfokey = "tbldata_info"
 def save_directive_info(env, key, info):
@@ -65,10 +65,10 @@ def make_tds(envinfo):
     # Input (envinfo) contains:
     #
     # {'tbldata': [<ddi1>, <ddi2>, ...], 'tblrender': [ <rdi1>, <rdi2> ...]}
-    # <ddi> ("data directive info") == { "docname": self.env.docname, "lineno": self.lineno, "tbl_name":tbl_name,
+    # <ddi> ("data directive info") == { "docname": self.env.docname, "lineno": self.lineno, "table_name":table_name,
     #        "valrefs":valrefs, "target":target_node, "tbldata_node": tbldata_node.deepcopy() }
     #
-    # <rdi> ("render directive info") == {"docname": self.env.docname, "tbl_name":tbl_name, "rows":rows, "cols":cols,
+    # <rdi> ("render directive info") == {"docname": self.env.docname, "table_name":table_name, "rows":rows, "cols":cols,
     #         "target": target_node, "tblrender_node": tblrender_node.deepcopy()}
     #
     # Output (tds) - table data sorted, contains:
@@ -81,10 +81,60 @@ def make_tds(envinfo):
     # { "tblrender":  # information from each tblrender directive, used for making link from tbldata directive node to table
     #     { <table_name>: [ <rdi>, ...], ... }
     #
+    def get_tbldata_label(tag, table_name, fdocname, flineno, tri):
+        # convert tag to title, label
+        # tag is either "title:label", or label
+        # if just label, need to find title.
+        # do safety check for same title in table row and column
+        # tri - table render info (from tds["tblrender"]["table_name"][0])
+        if ":" in tag:
+            title, label = tag.split(":")
+            if title == tri['row_title']:
+                if label not in tri['row_labels']:
+                    print("ERROR: tbldata for table '%s' in %s line %s references '%s', but '%s' is not a "
+                        "valid option for '%s' in "
+                        "tblrender defined in file %s line %s" % (table_name, fdocname, flineno, tag, label,
+                        title, tri["docname"], tri["lineno"]))
+                    sys.exit("Aborting")
+            elif title == tri['col_title']:
+               if label not in tri['col_labels']:
+                    print("ERROR: tbldata for table '%s' in %s line %s references '%s', but '%s' is not a "
+                        "valid option for '%s' in "
+                        "tblrender defined in file %s line %s" % (table_name, fdocname, flineno, tag, label,
+                        title, tri["docname"], tri["lineno"]))
+                    sys.exit("Aborting")
+            else:
+                print("ERROR: tbldata for table '%s' in %s line %s references title '%s' which is not a "
+                    "valid title; should be either '%s' or '%s' for"
+                    "tblrender defined in file %s line %s" % (table_name, fdocname, flineno, title, tri['row_title'],
+                    tri['col_title'], tri["docname"], tri["lineno"]))
+                sys.exit("Aborting")
+        else:
+            label = tag
+            inrows = label in tri['row_labels']
+            incols = label in tri['col_labels']
+            if inrows and incols:
+                print("ERROR: tbldata for table '%s' in file %s line %s references '%s', which is ambiguous "
+                    "since it could be either a '%s' or '%s' in "
+                    "tblrender defined in file %s line %s" % (table_name, fdocname, flineno, label,
+                    tri['row_title'], tri['col_title'], tri["docname"], tri["lineno"]))
+                sys.exit("Aborting")
+            if inrows:
+                title = tri['row_title']
+            elif incols:
+                title = tri['col_title']
+            else:
+                print("tbldata for table '%s' in %s line %s references '%s' which is not a valid option for '%s' or '%s' "
+                    "in tblrender defined in %s line %s" %(table_name, fdocname, flineno, tag, tri['row_title'],
+                    tri['col_title'], tri["docname"], tri["lineno"]))
+                sys.exit("Aborting")
+        return [title, label]
+
+    # start of mainline for function get_tbldata_label
     tds = {"tbldata": {}, "tblrender": {} }
     # convert envinfo["tblrender"] to tds["tblrender"]
     for rdi in envinfo["tblrender"]:
-        table_name = rdi["tbl_name"]
+        table_name = rdi["table_name"]
         if table_name not in tds["tblrender"]:
             tds["tblrender"][table_name] = []
         tds["tblrender"][table_name].append(rdi)
@@ -95,7 +145,7 @@ def make_tds(envinfo):
     # print("starting make tds, envinfo=")
     # pp.pprint(envinfo)
     for ddi in envinfo["tbldata"]:
-        table_name = ddi["tbl_name"]
+        table_name = ddi["table_name"]
         docname = ddi["docname"]
         lineno = ddi["lineno"]
         target = ddi["target"]
@@ -111,17 +161,36 @@ def make_tds(envinfo):
         # convert to JSON (add outer []) then decode to get values
         # print("valrefs=%s" % valrefs)
         # valrefs_decoded = json.loads( "[" + valrefs + "]" )
+        tri = tds["tblrender"][table_name][0]
         for data_quad in valrefs:
-            row, col, value, reference = data_quad
+            tag1, tag2, value, reference = data_quad
+            title1, label1 = get_tbldata_label(tag1, table_name, docname, lineno, tri)
+            title2, label2 = get_tbldata_label(tag2, table_name, docname, lineno, tri)
+            if title1 == title2:
+                print("Error: tbldata for table '%s', file %s line %s, row and column are both in '%s'.  Entry is:" % (
+                    table_name, docname, lineno, title1))
+                print("%s, %s, %s, %s" % (tag1, tag2, value, reference))
+                sys.exit("Aborting")
+            if title1 == tri["row_title"]:
+                assert title2 == tri["col_title"]
+                row = tag1
+                col = tag2
+            else:
+                assert title2 == tri["row_title"]
+                assert title1 == tri["col_title"]
+                row = tag2
+                col = tag1             
+            # row, col, value, reference = data_quad
             # make sure table entry exists for referenced table, row, col
-            if row not in tds["tblrender"][table_name][0]["row_labels"]:
-                print("Error: Row '%s' in table '%s' referenced at %s line %s, but is not "
-                    "included in tblrender directive" % (row, table_name, docname, lineno))
-                sys.exit("Aborting")
-            if col not in tds["tblrender"][table_name][0]["col_labels"]:
-                print("Error: Col '%s' in table '%s' referenced at %s line %s, but is not "
-                    "included in tblrender directive" % (col, table_name, docname, lineno))
-                sys.exit("Aborting")
+            # following should not be needed anymore because of error checking in get_tbldata_label(
+            # if row not in tds["tblrender"][table_name][0]["row_labels"]:
+            #     print("Error: Row '%s' in table '%s' referenced at %s line %s, but is not "
+            #         "included in tblrender directive" % (row, table_name, docname, lineno))
+            #     sys.exit("Aborting")
+            # if col not in tds["tblrender"][table_name][0]["col_labels"]:
+            #     print("Error: Col '%s' in table '%s' referenced at %s line %s, but is not "
+            #         "included in tblrender directive" % (col, table_name, docname, lineno))
+            #     sys.exit("Aborting")
             # everything is defined in a tblrender directive, add this to tds["tbldata"]
             if table_name not in tds["tbldata"]:
                 tds["tbldata"][table_name] = {}
@@ -145,10 +214,10 @@ def make_tds_old(envinfo):
     # Input (envinfo) contains:
     #
     # {'tbldata': [<ddi1>, <ddi2>, ...], 'tblrender': [ <rdi1>, <rdi2> ...]}
-    # <ddi> ("data directive info") == { "docname": self.env.docname, "lineno": self.lineno, "tbl_name":tbl_name,
+    # <ddi> ("data directive info") == { "docname": self.env.docname, "lineno": self.lineno, "table_name":table_name,
     #        "valrefs":valrefs, "target":target_node, "tbldata_node": tbldata_node.deepcopy() }
     #
-    # <rdi> ("render directive info") == {"docname": self.env.docname, "tbl_name":tbl_name, "rows":rows, "cols":cols,
+    # <rdi> ("render directive info") == {"docname": self.env.docname, "table_name":table_name, "rows":rows, "cols":cols,
     #         "target": target_node, "tblrender_node": tblrender_node.deepcopy()}
     #
     # Output (tds) - table data sorted, contains:
@@ -167,7 +236,7 @@ def make_tds_old(envinfo):
     # print("starting make tds, envinfo=")
     # pp.pprint(envinfo)
     for ddi in envinfo["tbldata"]:
-        table_name = ddi["tbl_name"]
+        table_name = ddi["table_name"]
         valrefs = ddi["valrefs"]
         # valrefs has format:
         # <list of: <row, col, val, reference> in JSON format, without outer enclosing []>                                                             
@@ -188,7 +257,7 @@ def make_tds_old(envinfo):
             tds["tbldata"][table_name][row][col].append(tde)
     # convert envinfo["tblrender"] to tds["tblrender"]
     for rdi in envinfo["tblrender"]:
-        table_name = rdi["tbl_name"]
+        table_name = rdi["table_name"]
         if table_name not in tds["tblrender"]:
             tds["tblrender"][table_name] = []
         tds["tblrender"][table_name].append(rdi)
@@ -245,7 +314,7 @@ class TblrenderDirective(SphinxDirective):
         'cols': directives.unchanged_required,
     }
     def run(self):
-        tbl_name = get_table_name(self)
+        table_name = get_table_name(self)
         rows = self.options.get('rows')
         cols = self.options.get('cols')
         rows_decoded = json.loads( "[" + rows + "]" )
@@ -256,8 +325,9 @@ class TblrenderDirective(SphinxDirective):
         col_labels = cols_decoded[1:]
         target_node = make_target_node(self.env)
         tblrender_node = tblrender('')
-        directive_info = {"docname": self.env.docname, "tbl_name":tbl_name, "row_labels":row_labels,
-             "row_title": row_title, "col_labels":col_labels, "col_title": col_title,  "target": target_node}
+        directive_info = {"docname": self.env.docname, "table_name":table_name, "row_labels":row_labels,
+             "row_title": row_title, "col_labels":col_labels, "col_title": col_title,  "target": target_node,
+             "lineno": self.lineno}
         # save directive_info as attribute of object so is easy to retrieve in replace_tbldata_and_tblrender_nodes
         tblrender_node.directive_info = directive_info
         save_directive_info(self.env, 'tblrender', directive_info)
@@ -297,7 +367,7 @@ class TbldataDirective(SphinxDirective):
         # prefix_message = "Data for table "
         # prefix_node = nodes.paragraph(prefix_message, prefix_message)
         # generate info to display at directive location using rst so can include citation that uses sphinxbibtex extension, e.g. ":cite:
-        # rst = "Data for *%s*\n\n%s\n\nSee :cite:`Albus-1989` for details." % (tbl_name, valrefs)
+        # rst = "Data for *%s*\n\n%s\n\nSee :cite:`Albus-1989` for details." % (table_name, valrefs)
         tbldata_node = tbldata()
         title = "Data for table :ref:`%s <table_%s>`" % (table_name, table_name)
         # create a reference
@@ -340,7 +410,7 @@ class TbldataDirective(SphinxDirective):
         tbldata_node += rst_nodes
         # rst_nodes = render_rst(self, rst)
         # tbldata_node = tbldata('')
-        directive_info = { "docname": self.env.docname, "lineno": self.lineno, "tbl_name":table_name,
+        directive_info = { "docname": self.env.docname, "lineno": self.lineno, "table_name":table_name,
             "valrefs":valrefs_decoded, "target":target_node} #  "tbldata_node": tbldata_node.deepcopy()
         # save directive_info as attribute of object so is easy to retrieve in replace_tbldata_and_tblrender_nodes
         tbldata_node.directive_info = directive_info
@@ -349,8 +419,8 @@ class TbldataDirective(SphinxDirective):
         return [ target_node, tbldata_node ]
 
         # return [target_node, prefix_node, tbldata_node] + rst_nodes
-        # print("in TbldataDirective run, tbl_name = '%s', valrefs='%s'" % (tbl_name, valrefs))
-        # rst = "Table: *%s*\n\nvalrefs: %s :ref:`stellate`" % (tbl_name, valrefs)
+        # print("in TbldataDirective run, table_name = '%s', valrefs='%s'" % (table_name, valrefs))
+        # rst = "Table: *%s*\n\nvalrefs: %s :ref:`stellate`" % (table_name, valrefs)
         ## tbldata_node = tbldata('\n'.join(self.content) + " :ref:`stellate`")
         # tbldata_node = tbldata(rst)
         # tbldata_node += nodes.title(_('Tbldata'), _('Tbldata'))
@@ -453,10 +523,10 @@ def replace_tbldata_and_tblrender_nodes(app, doctree, fromdocname):
     # }
     # where:
     #
-    # <ddi> ("data directive info") == { "docname": self.env.docname, "lineno": self.lineno, "tbl_name":tbl_name,
+    # <ddi> ("data directive info") == { "docname": self.env.docname, "lineno": self.lineno, "table_name":table_name,
     #        "valrefs":valrefs, "target":target_node, "tbldata_node": tbldata_node.deepcopy() }
     #
-    # <rdi> ("render directive info") == {"docname": self.env.docname, "tbl_name":tbl_name, "rows":rows, "cols":cols,
+    # <rdi> ("render directive info") == {"docname": self.env.docname, "table_name":table_name, "rows":rows, "cols":cols,
     #         "target": target_node, "tblrender_node": tblrender_node.deepcopy()}
 
     # print("visiting tblrender nodes")
@@ -464,9 +534,9 @@ def replace_tbldata_and_tblrender_nodes(app, doctree, fromdocname):
         di = node.directive_info
         # print ("visiting node, source=%s" % node.source)
         # print ("directive_info=%s" % di)
-        # {'docname': 'index', 'tbl_name': 'num_cells', 'rows': '"Cell type", stellate, grannule',
+        # {'docname': 'index', 'table_name': 'num_cells', 'rows': '"Cell type", stellate, grannule',
         # 'cols': 'Species, cat human', 'target': <target: >}
-        table_name = di['tbl_name']
+        table_name = di['table_name']
         row_title = di["row_title"]
         row_labels = di["row_labels"]
         col_title = di["col_title"]
@@ -547,10 +617,10 @@ def replace_tbldata_and_tblrender_nodes(app, doctree, fromdocname):
     print("visiting tbldata nodes")
     for node in doctree.traverse(tbldata):
         di = node.directive_info
-        # directive_info = { "docname": self.env.docname, "lineno": self.lineno, "tbl_name":tbl_name,
+        # directive_info = { "docname": self.env.docname, "lineno": self.lineno, "table_name":table_name,
         #     "valrefs":valrefs_decoded, "target":target_node}
-        table_name = di["tbl_name"]
-        # <rdi> ("render directive info") == {"docname": self.env.docname, "tbl_name":tbl_name, "rows":rows, "cols":cols,
+        table_name = di["table_name"]
+        # <rdi> ("render directive info") == {"docname": self.env.docname, "table_name":table_name, "rows":rows, "cols":cols,
         #         "target": target_node}
         rdi = tds["tblrender"][table_name][0]  # zero to select first table
         # create a reference
