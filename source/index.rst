@@ -10,13 +10,17 @@ Welcome to pc_data_table's documentation!
    :maxdepth: 2
    :caption: Contents:
 
-   basket
+   basket2
    grannule
    stellate
+   data/basket
    references/references
 
 
 Hello world.  Below is a data table.
+
+
+.. _table_num_cells:
 
 .. tblrender:: num_cells
    :rows: "Cell type", "basket", "grannule", "stellate"

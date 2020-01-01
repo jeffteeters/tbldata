@@ -49,8 +49,8 @@ def save_directive_info(env, key, info):
         print("*** initializing envinfokey *** ")
         initial_value = {"tbldata":[], "tblrender":[]}
         setattr(env, envinfokey, initial_value)
-    print("saving info in env.%s[%s]" % (envinfokey, key))
-    pp.pprint(info)
+    # print("saving info in env.%s[%s]" % (envinfokey, key))
+    # pp.pprint(info)
     envinfo = getattr(env, envinfokey)
     envinfo[key].append(info)
 
@@ -89,11 +89,11 @@ def make_tds(envinfo):
             tds["tblrender"][table_name] = []
         tds["tblrender"][table_name].append(rdi)
     # todo: check to make sure if more than one tblrender of the same table, the rows and cols match
-    print("tds before adding tbldata is:")
-    pp.pprint(tds)
+    # print("tds before adding tbldata is:")
+    # pp.pprint(tds)
     # convert envinfo["tbldata"] to tds["tbldata"]
-    print("starting make tds, envinfo=")
-    pp.pprint(envinfo)
+    # print("starting make tds, envinfo=")
+    # pp.pprint(envinfo)
     for ddi in envinfo["tbldata"]:
         table_name = ddi["tbl_name"]
         docname = ddi["docname"]
@@ -109,7 +109,7 @@ def make_tds(envinfo):
         # example:
         # ["basket", "cat", 234, "Albus-1989"], ["basket", "rat", 298, "Jones-2002"]
         # convert to JSON (add outer []) then decode to get values
-        print("valrefs=%s" % valrefs)
+        # print("valrefs=%s" % valrefs)
         # valrefs_decoded = json.loads( "[" + valrefs + "]" )
         for data_quad in valrefs:
             row, col, value, reference = data_quad
@@ -133,6 +133,10 @@ def make_tds(envinfo):
             tds["tbldata"][table_name][row][col].append(ref_info)
             # tds["tbldata"][table_name][row][col].append(tde)
             # tds["tbldata"][table_name][row][col].append(ddi)
+    print("made tds, envinfo=")
+    pp.pprint(envinfo)
+    print("tds=")
+    pp.pprint(tds)
     return tds
 
 def make_tds_old(envinfo):
@@ -160,8 +164,8 @@ def make_tds_old(envinfo):
     #
     tds = {"tbldata": {}, "tblrender": {} }
     # convert envinfo["tbldata"] to tds["tbldata"]
-    print("starting make tds, envinfo=")
-    pp.pprint(envinfo)
+    # print("starting make tds, envinfo=")
+    # pp.pprint(envinfo)
     for ddi in envinfo["tbldata"]:
         table_name = ddi["tbl_name"]
         valrefs = ddi["valrefs"]
@@ -277,20 +281,74 @@ class TbldataDirective(SphinxDirective):
     # include content as comment?
     has_content = True
 
+
+    # Data for table :ref:`num_cells <table_num_cells>`
+    # row: cat, col: basket, value: 89 :cite:`MarrD-1969` :footcite:`MarrD-1969`
+    # row: human, col: basket, value: 878 :cite:`VanEssenDC-2002` :footcite:`VanEssenDC-2002`
+
+
     def run(self):
-        tbl_name = get_table_name(self)
+        table_name = get_table_name(self)
         valrefs = self.options.get('valrefs')
         valrefs_decoded = json.loads( "[" + valrefs + "]" )
         target_node = make_target_node(self.env)
-        tbldata_node = tbldata('')
-        directive_info = { "docname": self.env.docname, "lineno": self.lineno, "tbl_name":tbl_name,
+        # box = nodes.block_quote()
+        # box = nodes.paragraph()
+        # prefix_message = "Data for table "
+        # prefix_node = nodes.paragraph(prefix_message, prefix_message)
+        # generate info to display at directive location using rst so can include citation that uses sphinxbibtex extension, e.g. ":cite:
+        # rst = "Data for *%s*\n\n%s\n\nSee :cite:`Albus-1989` for details." % (tbl_name, valrefs)
+        tbldata_node = tbldata()
+        title = "Data for table :ref:`%s <table_%s>`" % (table_name, table_name)
+        # create a reference
+        # newnode = nodes.reference('','')
+        # newnode['refdocname'] = "index"
+        # newnode['refuri'] = app.builder.get_relative_uri(
+        #     fromdocname, "index")
+        # newnode['refuri'] += '#' + ddi['target']['refid']
+        # innernode = nodes.emphasis(vref, vref)
+        # newnode.append(innernode)
+#         title_lines = """
+
+#    .. |emphasized hyperlink| replace:: *emphasized hyperlink*
+#    .. _emphasized hyperlink: http://example.org
+
+# """
+        # heading = "Data for table"
+        # title_node = nodes.title()
+        # heading = "Here is an |emphasized hyperlink|_."
+        # tbldata_node += nodes.title(heading, heading)
+        # rst = title_lines.splitlines()
+        rst = []
+        rst.append(".. cssclass:: tbldata-title")
+        rst.append("")         
+        rst.append(title)
+        rst.append("")
+        # title_nodes = render_rst(self, "\n".join(rst))
+        # title_node += title_nodes
+        # tbldata_node += title_node
+
+        for valref in valrefs_decoded:
+            row, col, val, ref = valref
+            rst.append("   row=%s, col=%s, 'value=%s' :cite:`%s` :footcite:`%s`" % (row, col, val, ref, ref))
+            rst.append("")
+        rst = "\n".join(rst)
+        # box_node = nodes.admonition(rst)
+        # tbldata_node += nodes.title(_('Data for table'), _('Data for table'))
+        # tbldata_node += nodes.title(_(''), _(''))
+        rst_nodes = render_rst(self, rst)
+        tbldata_node += rst_nodes
+        # rst_nodes = render_rst(self, rst)
+        # tbldata_node = tbldata('')
+        directive_info = { "docname": self.env.docname, "lineno": self.lineno, "tbl_name":table_name,
             "valrefs":valrefs_decoded, "target":target_node} #  "tbldata_node": tbldata_node.deepcopy()
         # save directive_info as attribute of object so is easy to retrieve in replace_tbldata_and_tblrender_nodes
         tbldata_node.directive_info = directive_info
         save_directive_info(self.env, 'tbldata', directive_info)
-        # generate info to display at directive location using rst so can include citation that uses sphinxbibtex extension, e.g. ":cite:
-        rst = "Data for *%s*\n\n%s\n\nSee :cite:`Albus-1989` for details." % (tbl_name, valrefs)
-        rst_nodes = render_rst(self, rst)
+        # box += prefix_node + tbldata_node + rst_nodes
+        return [ target_node, tbldata_node ]
+
+        # return [target_node, prefix_node, tbldata_node] + rst_nodes
         # print("in TbldataDirective run, tbl_name = '%s', valrefs='%s'" % (tbl_name, valrefs))
         # rst = "Table: *%s*\n\nvalrefs: %s :ref:`stellate`" % (tbl_name, valrefs)
         ## tbldata_node = tbldata('\n'.join(self.content) + " :ref:`stellate`")
@@ -300,7 +358,7 @@ class TbldataDirective(SphinxDirective):
         # self.state.nested_parse(self.content, self.content_offset, tbldata_node)
         # return target_node for later reference from tblrender entries
         # return tbldata_node to be replaced later by link to table
-        return [target_node, tbldata_node] + rst_nodes
+        # return [target_node, tbldata_node] + rst_nodes
 
 
 # no longer used
@@ -376,7 +434,7 @@ def replace_tbldata_and_tblrender_nodes(app, doctree, fromdocname):
     #   If the table appears in more than one location, for now, just pick the first location
 
     global envinfokey
-    print("starting replace_tbldata_and_tblrender_nodes, docname='%s'" % fromdocname)
+    # print("starting replace_tbldata_and_tblrender_nodes, docname='%s'" % fromdocname)
     env = app.builder.env
     tds = make_tds(getattr(env, envinfokey))
     # print("tds=")
@@ -401,11 +459,11 @@ def replace_tbldata_and_tblrender_nodes(app, doctree, fromdocname):
     # <rdi> ("render directive info") == {"docname": self.env.docname, "tbl_name":tbl_name, "rows":rows, "cols":cols,
     #         "target": target_node, "tblrender_node": tblrender_node.deepcopy()}
 
-    print("visiting tblrender nodes")
+    # print("visiting tblrender nodes")
     for node in doctree.traverse(tblrender):
         di = node.directive_info
-        print ("visiting node, source=%s" % node.source)
-        print ("directive_info=%s" % di)
+        # print ("visiting node, source=%s" % node.source)
+        # print ("directive_info=%s" % di)
         # {'docname': 'index', 'tbl_name': 'num_cells', 'rows': '"Cell type", stellate, grannule',
         # 'cols': 'Species, cat human', 'target': <target: >}
         table_name = di['tbl_name']
@@ -466,7 +524,8 @@ def replace_tbldata_and_tblrender_nodes(app, doctree, fromdocname):
         table = make_docutils_table(header_nodes, colwidths, tabledata, True)
         # table = make_docutils_table(header, colwidths, tabledata)
         node.replace_self(table)
-        return
+    
+    return
 
         # scratch (old version of code) below
         # multvals = []
@@ -487,7 +546,31 @@ def replace_tbldata_and_tblrender_nodes(app, doctree, fromdocname):
 
     print("visiting tbldata nodes")
     for node in doctree.traverse(tbldata):
-        directive_info = node.directive_info
+        di = node.directive_info
+        # directive_info = { "docname": self.env.docname, "lineno": self.lineno, "tbl_name":tbl_name,
+        #     "valrefs":valrefs_decoded, "target":target_node}
+        table_name = di["tbl_name"]
+        # <rdi> ("render directive info") == {"docname": self.env.docname, "tbl_name":tbl_name, "rows":rows, "cols":cols,
+        #         "target": target_node}
+        rdi = tds["tblrender"][table_name][0]  # zero to select first table
+        # create a reference
+        newnode = nodes.reference('','')
+        newnode['refdocname'] = rdi['docname']
+        newnode['refuri'] = app.builder.get_relative_uri(
+            fromdocname, rdi['docname'])
+        newnode['refuri'] += '#' + rdi['target']['refid']
+        innernode = nodes.emphasis(table_name, table_name)
+        newnode.append(innernode)
+        para = nodes.paragraph(text="Data for table ")
+        para += newnode
+        node.replace_self(para)
+        return
+
+
+
+
+
+
         # print ("visiting node, source=%s" % node.source)
         # print ("directive_info=%s" % directive_info)
         # import pdb; pdb.set_trace()   
