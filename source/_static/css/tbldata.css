@@ -3,3 +3,26 @@
 .tbldata-title {
   font-size: 120%;
 } 
+
+/* <dt class="bibtex label" id="albusjs-1981"><span class="brackets">AlbusJS-1981</span></dt> 
+from: https://developer.mozilla.org/en-US/docs/Learn/CSS/Howto/Generated_content
+https://stackoverflow.com/questions/9882257/how-to-reference-a-long-class-name-with-spaces-in-css
+https://stackoverflow.com/questions/5467605/add-a-space-after-an-element-using-after
+*/
+
+span.brackets::before {
+  /* font-weight: bold; */
+  content: "[";
+}
+span.brackets::after {
+  /* font-weight: bold; */
+  white-space: pre;
+  content: "] ";
+}
+/*
+span.brackets{
+  font-weight: bold;
+}
+*/
+
+
