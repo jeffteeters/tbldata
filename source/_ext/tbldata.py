@@ -173,13 +173,13 @@ def make_tds(envinfo):
                 sys.exit("Aborting")
             if title1 == tri["row_title"]:
                 assert title2 == tri["col_title"]
-                row = tag1
-                col = tag2
+                row = label1
+                col = label2
             else:
                 assert title2 == tri["row_title"]
                 assert title1 == tri["col_title"]
-                row = tag2
-                col = tag1             
+                row = label2
+                col = label1             
             # row, col, value, reference = data_quad
             # make sure table entry exists for referenced table, row, col
             # following should not be needed anymore because of error checking in get_tbldata_label(
@@ -562,6 +562,39 @@ def replace_tbldata_and_tblrender_nodes(app, doctree, fromdocname):
                         target = ddi["target"]
                         valref = ddi["valref"]
                         vrow, vcol, vval, vref = valref
+                        # if vrow != row:
+                        #     print("vrow=%s, vcol=%s" % (vrow, vcol))
+                        #     import pdb; pdb.set_trace()
+                        # should make this stronger assertion
+                        assert vrow.endswith(row)
+                        assert vcol.endswith(col)
+                        # create a reference
+                        newnode = nodes.reference('','')
+                        newnode['refdocname'] = ddi['docname']
+                        newnode['refuri'] = app.builder.get_relative_uri(
+                            fromdocname, ddi['docname'])
+                        newnode['refuri'] += '#' + ddi['target']['refid']
+                        # innernode = nodes.emphasis(vref, vref)
+                        innernode = nodes.emphasis(vval, vval)
+                        newnode.append(innernode)
+                        # seperator = "; " if not first_node else ""
+                        if not first_node:
+                            seperator = "; "
+                            para += nodes.Text(seperator, seperator)
+                        first_node = False
+                        # val_str = "%s%s " % (seperator, vval)
+                        # para += nodes.Text(val_str, val_str)
+                        para += newnode
+                        # entry.append("%s--%s" % (vval, vref))
+                    # entry = ", ".join(entry)
+
+                    Comment = """
+                    para = nodes.paragraph()
+                    first_node = True
+                    for ddi in ddis:
+                        target = ddi["target"]
+                        valref = ddi["valref"]
+                        vrow, vcol, vval, vref = valref
                         assert vrow == row
                         assert vcol == col
                         # create a reference
@@ -570,25 +603,34 @@ def replace_tbldata_and_tblrender_nodes(app, doctree, fromdocname):
                         newnode['refuri'] = app.builder.get_relative_uri(
                             fromdocname, ddi['docname'])
                         newnode['refuri'] += '#' + ddi['target']['refid']
-                        innernode = nodes.emphasis(vref, vref)
+                        # innernode = nodes.emphasis(vref, vref)
+                        innernode = nodes.emphasis(vval, vval)
                         newnode.append(innernode)
-                        seperator = "; " if not first_node else ""
+                        # seperator = "; " if not first_node else ""
+                        if not first_node:
+                            seperator = "; "
+                            para += nodes.Text(seperator, seperator)
                         first_node = False
-                        val_str = "%s%s " % (seperator, vval)
-                        para += nodes.Text(val_str, val_str)
+                        # val_str = "%s%s " % (seperator, vval)
+                        # para += nodes.Text(val_str, val_str)
                         para += newnode
                         # entry.append("%s--%s" % (vval, vref))
                     # entry = ", ".join(entry)
+                    # end Comment """
+
                 else:
                     # entry = ""
-                    print("empty cell found")
-                    sys.exit("Aborting.")
+                    # print("empty cell found")
+                    # import pdb; pdb.set_trace()
+                    # sys.exit("Aborting.")
                     para = nodes.paragraph()
+                    empty_flag = "-"
+                    para += nodes.Text(empty_flag, empty_flag)
                 # rowdata.append(entry)
                 rowdata.append(para)
             tabledata.append(rowdata)
         # colwidths = [1 for i in len(col_labels)]  # make all colwidts 1 for now
-        header = [col_title] + col_labels
+        header = [row_title] + col_labels
         colwidths = [1] * len(header)  # generates list like: [1, 1, 1, ... ]
         header_nodes = [nodes.paragraph(text=cell) for cell in header]
         table = make_docutils_table(header_nodes, colwidths, tabledata, True)

@@ -27,6 +27,16 @@ Hello world.  Below is a data table.
    :cols: "Species", "cat", "human"
 
 
+Some text between the tables.
+
+
+.. _table_loebner_fig2:
+
+.. tblrender:: loebner_fig2
+   :rows: "From cell", "basket", "golgi", "granule", "purkinje", "stellate"
+   :cols: "To cell", "# cells", "basket", "golgi", "granule", "purkinje", "stellate" 
+
+
 Indices and tables
 ==================
 
