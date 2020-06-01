@@ -10,6 +10,12 @@ Welcome to pc_data_table's documentation!
    :maxdepth: 2
    :caption: Contents:
 
+   table2
+   basket2a
+   golgi
+   grannule2a
+   purkinje
+   stellate2a
    basket2
    grannule
    stellate

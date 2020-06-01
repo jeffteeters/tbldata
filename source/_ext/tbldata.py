@@ -202,10 +202,10 @@ def make_tds(envinfo):
             tds["tbldata"][table_name][row][col].append(ref_info)
             # tds["tbldata"][table_name][row][col].append(tde)
             # tds["tbldata"][table_name][row][col].append(ddi)
-    print("made tds, envinfo=")
-    pp.pprint(envinfo)
-    print("tds=")
-    pp.pprint(tds)
+    # print("made tds, envinfo=")
+    # pp.pprint(envinfo)
+    # print("tds=")
+    # pp.pprint(tds)
     return tds
 
 def make_tds_old(envinfo):
