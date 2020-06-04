@@ -544,7 +544,8 @@ def replace_tbldata_and_tblrender_nodes(app, doctree, fromdocname):
         tabledata = []
         for row_num in range(len(row_labels)):
             row = row_labels[row_num]
-            rowdata = [nodes.paragraph(text=row), ]
+            # rowdata = [nodes.paragraph(text=row), ]
+            rowdata = [nodes.strong(text=row), ]
             for col in col_labels:
                 if row in tds["tbldata"][table_name] and col in tds["tbldata"][table_name][row]:
                     # entry = []
@@ -568,15 +569,20 @@ def replace_tbldata_and_tblrender_nodes(app, doctree, fromdocname):
                         # should make this stronger assertion
                         assert vrow.endswith(row)
                         assert vcol.endswith(col)
-                        # create a reference
-                        newnode = nodes.reference('','')
-                        newnode['refdocname'] = ddi['docname']
-                        newnode['refuri'] = app.builder.get_relative_uri(
-                            fromdocname, ddi['docname'])
-                        newnode['refuri'] += '#' + ddi['target']['refid']
-                        # innernode = nodes.emphasis(vref, vref)
-                        innernode = nodes.emphasis(vval, vval)
-                        newnode.append(innernode)
+                        # check for "-" in both value and vref.  If found, just display '-' without a link to a target
+                        # this is used to allow including dashes to indicate there can be no value for this table cell
+                        if vval == '-' and vref == '-':
+                            newnode = nodes.Text('-', '-')
+                        else:
+                            # create a reference
+                            newnode = nodes.reference('','')
+                            newnode['refdocname'] = ddi['docname']
+                            newnode['refuri'] = app.builder.get_relative_uri(
+                                fromdocname, ddi['docname'])
+                            newnode['refuri'] += '#' + ddi['target']['refid']
+                            # innernode = nodes.emphasis(vref, vref)
+                            innernode = nodes.emphasis(vval, vval)
+                            newnode.append(innernode)
                         # seperator = "; " if not first_node else ""
                         if not first_node:
                             seperator = "; "
@@ -624,7 +630,7 @@ def replace_tbldata_and_tblrender_nodes(app, doctree, fromdocname):
                     # import pdb; pdb.set_trace()
                     # sys.exit("Aborting.")
                     para = nodes.paragraph()
-                    empty_flag = "-"
+                    empty_flag = " "  # space to indicate empty contents
                     para += nodes.Text(empty_flag, empty_flag)
                 # rowdata.append(entry)
                 rowdata.append(para)
