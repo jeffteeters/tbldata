@@ -7,10 +7,12 @@ Grannule Cell
 
 
 .. tbldata::  num_cells
-   :valrefs: ["grannule", "cat", "7gran", "JGran1972"], ["grannule", "human", "9gran", "AGran85"]
+   :valrefs: ["grannule", "cat", "2.2x10^9", "LoebnerEE-1989"], ["grannule", "human", "22.0x10^9", "LoebnerEE-1989"]
 
 
 
 Data about grannule cells are in this file.
 
+
+.. footbibliography::
 

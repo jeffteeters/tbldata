@@ -24,8 +24,6 @@ Data for table :ref:`num_cells <table_num_cells>`
 
 Notes about :cite:`LoebnerEE-1989` :footcite:`LoebnerEE-1989` .
 
-.. footbibliography::
-
 
 This paper has some data for cat in Figure 2.
 
@@ -47,4 +45,6 @@ This paper has some data for cat in Figure 2.
 
    Test text with largeFont
 
+
+.. footbibliography::
 

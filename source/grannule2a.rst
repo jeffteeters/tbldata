@@ -1,8 +1,8 @@
-.. _grannule:
+.. _grannule2a:
 
-*************
-Grannule Cell
-*************
+***************
+Grannule2a Cell
+***************
 
 
 
@@ -15,5 +15,9 @@ Grannule Cell
              ["From cell:granule", "To cell:granule", "-", "-"]
 
 Data about grannule cells are in this file.
+
+
+.. footbibliography::
+
 
 

@@ -15,3 +15,6 @@ Golgi Cell
 Data about golgi cells are in this file.
 
 
+
+.. footbibliography::
+

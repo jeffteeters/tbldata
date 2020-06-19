@@ -335,6 +335,40 @@ class TblrenderDirective(SphinxDirective):
         # return tblrender_node to be replaced later by content of table
         return [target_node, tblrender_node] 
 
+
+def example_list_table(test_ref):
+    source_rst = """
+
+.. list-table:: List tables can have captions like this one.
+    :widths: 10 5 10 50
+    :header-rows: 1
+    :stub-columns: 1
+
+    * - List table
+      - Header 1
+      - Header 2
+      - Header 3 long. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nam sit amet mauris arcu.
+    * - Stub Row 1
+      - Row 1
+      - Column 2
+      - Column 3 long. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nam sit amet mauris arcu.
+    * - Stub Row 2
+      - Row 2
+      - Column 2
+      - Column 3 long. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nam sit amet mauris arcu.
+    * - Stub Row 3
+      - Row 3
+      - Column 2
+      - Column 3 long. Lorem ipsum dolor sit amet, :cite:`%s` :footcite:`%s`.
+""" % (test_ref, test_ref)
+    return source_rst
+
+
+
+
+
+
+
 class TbldataDirective(SphinxDirective):
     # tbldata directive specifies data to be included in a table, and also to be shown where the directive is
     # format:
@@ -360,6 +394,8 @@ class TbldataDirective(SphinxDirective):
     def run(self):
         table_name = get_table_name(self)
         valrefs = self.options.get('valrefs')
+        content = self.content
+        print("content=%s" % content)
         valrefs_decoded = json.loads( "[" + valrefs + "]" )
         target_node = make_target_node(self.env)
         # box = nodes.block_quote()
@@ -397,12 +433,19 @@ class TbldataDirective(SphinxDirective):
         # title_nodes = render_rst(self, "\n".join(rst))
         # title_node += title_nodes
         # tbldata_node += title_node
+        test_ref = None
 
         for valref in valrefs_decoded:
             row, col, val, ref = valref
-            rst.append("   row=%s, col=%s, 'value=%s' :cite:`%s` :footcite:`%s`" % (row, col, val, ref, ref))
+            if val == '-' and ref == '-':
+                # no reference for single dash so don't include :cite: and :footcite:
+                rst.append("   row=%s, col=%s, value='%s' ref='%s'" % (row, col, val, ref))
+            else:
+                rst.append("   row=%s, col=%s, value='%s' :cite:`%s` :footcite:`%s`" % (row, col, val, ref, ref))
+                test_ref = ref
             rst.append("")
         rst = "\n".join(rst)
+        rst += example_list_table(test_ref)
         # box_node = nodes.admonition(rst)
         # tbldata_node += nodes.title(_('Data for table'), _('Data for table'))
         # tbldata_node += nodes.title(_(''), _(''))

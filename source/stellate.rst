@@ -5,10 +5,9 @@ Stellate Cells
 Some stellate cell intro text here...
 
 .. tbldata::  num_cells
-   :valrefs: ["stellate", "cat", 364, "Jones1972"], ["stellate", "human", 987, "Albus85"]
+   :valrefs: ["stellate", "cat", "2.1x10^7", "LoebnerEE-1989"], ["grannule", "human", "21.0x10^7", "LoebnerEE-1989"]
 
 
-
-
+.. footbibliography::
 
 

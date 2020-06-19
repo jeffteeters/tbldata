@@ -8,7 +8,8 @@ LoebnerEE-1989
 Notes about :cite:`LoebnerEE-1989` :footcite:`LoebnerEE-1989` .
 
 
-.. comment _table_loebner_fig2
+.. 
+   comment _table_loebner_fig2
 
 .. tbldata:: loebner_fig2
    :valrefs: ["From cell:basket", "# cells", "7.5x10^6",  "LoebnerEE-1989"],
@@ -21,12 +22,14 @@ Notes about :cite:`LoebnerEE-1989` :footcite:`LoebnerEE-1989` .
              ["From cell:granule", "To cell:purkinje", "200x10^3, 8.5x10^4", "LoebnerEE-1989"]
 
 
-.. comment::
+.. 
+   comment
    :rows: "To cell", "# cells", "basket", "golgi", "granule", "purkinje", "stellate"
    :cols: "From cell", "basket", "golgi", "granule", "purkinje", "stellate"
 
 
-.. comment:: - tbldata::  num_cells
+.. 
+   comment:: - tbldata::  num_cells
    :valrefs: ["stellate", "cat", 364, "Jones1972"], ["stellate", "human", 987, "Albus85"]
 
 
