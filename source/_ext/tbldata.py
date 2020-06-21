@@ -66,10 +66,10 @@ def make_tds(envinfo):
     #
     # {'tbldata': [<ddi1>, <ddi2>, ...], 'tblrender': [ <rdi1>, <rdi2> ...]}
     # <ddi> ("data directive info") == { "docname": self.env.docname, "lineno": self.lineno, "table_name":table_name,
-    #        "valrefs":valrefs, "target":target_node, "tbldata_node": tbldata_node.deepcopy() }
+    #        "valrefs":valrefs, "target":target_node}  --- removed: "tbldata_node": tbldata_node.deepcopy() }
     #
     # <rdi> ("render directive info") == {"docname": self.env.docname, "table_name":table_name, "rows":rows, "cols":cols,
-    #         "target": target_node, "tblrender_node": tblrender_node.deepcopy()}
+    #         "target": target_node}  --- removed:  "tblrender_node": tblrender_node.deepcopy()}
     #
     # Output (tds) - table data sorted, contains:
     #
@@ -323,17 +323,77 @@ class TblrenderDirective(SphinxDirective):
         cols_decoded = json.loads( "[" + cols + "]" )
         col_title = cols_decoded[0]
         col_labels = cols_decoded[1:]
-        target_node = make_target_node(self.env)
+        # target_node = make_target_node(self.env)
         tblrender_node = tblrender('')
+        # todo: generate rst to specify label:
+        label = ".. _table_%s:" % table_name
+        rst = "\n" + label + "\n"
+        rst_nodes = render_rst(self, rst)
+#        .. _table_loebner_fig2a:
+#    OR patch labels and targets at end.  How to make reference to table.
         directive_info = {"docname": self.env.docname, "table_name":table_name, "row_labels":row_labels,
-             "row_title": row_title, "col_labels":col_labels, "col_title": col_title,  "target": target_node,
+             "row_title": row_title, "col_labels":col_labels, "col_title": col_title, # "target": target_node,
              "lineno": self.lineno}
         # save directive_info as attribute of object so is easy to retrieve in replace_tbldata_and_tblrender_nodes
         tblrender_node.directive_info = directive_info
         save_directive_info(self.env, 'tblrender', directive_info)
         # return target_node for later reference from tbldata directive
         # return tblrender_node to be replaced later by content of table
-        return [target_node, tblrender_node] 
+        # return [target_node, tblrender_node]
+        nodes = rst_nodes + [tblrender_node]
+        # import pdb; pdb.set_trace()
+        return nodes
+
+
+# start scratch code
+"""
+        title = "Data for table :ref:`%s <table_%s>`" % (table_name, table_name)
+        # create a reference
+        # newnode = nodes.reference('','')
+        # newnode['refdocname'] = "index"
+        # newnode['refuri'] = app.builder.get_relative_uri(
+        #     fromdocname, "index")
+        # newnode['refuri'] += '#' + ddi['target']['refid']
+        # innernode = nodes.emphasis(vref, vref)
+        # newnode.append(innernode)
+#         title_lines = " ""
+
+#    .. |emphasized hyperlink| replace:: *emphasized hyperlink*
+#    .. _emphasized hyperlink: http://example.org
+
+#""
+        # heading = "Data for table"
+        # title_node = nodes.title()
+        # heading = "Here is an |emphasized hyperlink|_."
+        # tbldata_node += nodes.title(heading, heading)
+        # rst = title_lines.splitlines()
+        rst = []
+        rst.append(".. cssclass:: tbldata-title")
+        rst.append("")         
+        rst.append(title)
+        rst.append("")
+        # title_nodes = render_rst(self, "\n".join(rst))
+        # title_node += title_nodes
+        # tbldata_node += title_node
+        test_ref = None
+
+        for valref in valrefs_decoded:
+            row, col, val, ref = valref
+            if val == '-' and ref == '-':
+                # no reference for single dash so don't include :cite: and :footcite:
+                rst.append("   row=%s, col=%s, value='%s' ref='%s'" % (row, col, val, ref))
+            else:
+                rst.append("   row=%s, col=%s, value='%s' :cite:`%s` :footcite:`%s`" % (row, col, val, ref, ref))
+                test_ref = ref
+            rst.append("")
+        rst = "\n".join(rst)
+        rst += example_list_table(test_ref)
+        # box_node = nodes.admonition(rst)
+        # tbldata_node += nodes.title(_('Data for table'), _('Data for table'))
+        # tbldata_node += nodes.title(_(''), _(''))
+        rst_nodes = render_rst(self, rst)
+"""
+# end scratch code
 
 
 def example_list_table(test_ref):

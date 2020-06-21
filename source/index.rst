@@ -26,7 +26,9 @@ Welcome to pc_data_table's documentation!
 Hello world.  Below is a data table.
 
 
-.. _table_num_cells:
+..
+   comment
+   _table_num_cells:
 
 .. tblrender:: num_cells
    :rows: "Cell type", "basket", "grannule", "stellate"
@@ -36,7 +38,9 @@ Hello world.  Below is a data table.
 Some text between the tables.
 
 
-.. _table_loebner_fig2:
+..
+   comment
+   _table_loebner_fig2:
 
 .. tblrender:: loebner_fig2
    :rows: "From cell", "basket", "golgi", "granule", "purkinje", "stellate"
