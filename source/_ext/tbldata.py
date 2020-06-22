@@ -463,7 +463,7 @@ class TbldataDirective(SphinxDirective):
             msg = nodes.Text(msg, msg)
             tbldata_node += msg
             return [ target_node, tbldata_node ]
-        print("content=%s" % content)
+        # print("content=%s" % content)
         input_rows = content  # .splitlines() # is already split
         header = [x.strip() for x in input_rows[0].split("|")]
         assert len(header) == 4
@@ -716,8 +716,8 @@ def replace_tbldata_and_tblrender_nodes(app, doctree, fromdocname):
     # print("starting replace_tbldata_and_tblrender_nodes, docname='%s'" % fromdocname)
     env = app.builder.env
     tds = make_tds(getattr(env, envinfokey))
-    print("tds['tbldata']=")
-    pp.pprint(tds['tbldata'])
+    # print("tds['tbldata']=")
+    # pp.pprint(tds['tbldata'])
     # import pdb; pdb.set_trace()
     # tds has format:
     # {

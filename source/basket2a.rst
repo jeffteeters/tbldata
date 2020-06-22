@@ -10,6 +10,11 @@ Some text about basket cells...
              ["From cell:basket", "To cell:purkinje", "9, 7.5x10^6", "LoebnerEE-1989"],
              ["From cell:basket", "To cell:basket", "-", "-"]
 
+   From cell   | To cell    | Value       | Reference
+   basket      | # cells    | 7.5x10^6    | LoebnerEE-1989
+   basket      | purkinje   | 9, 7.5x10^6 | LoebnerEE-1989
+   basket      | basket     | -           | -
+
 
 And some text after basket cell text.
 
