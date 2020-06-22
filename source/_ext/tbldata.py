@@ -130,7 +130,7 @@ def make_tds(envinfo):
                 sys.exit("Aborting")
         return [title, label]
 
-    # start of mainline for function get_tbldata_label
+    # start of mainline for function get_tds
     tds = {"tbldata": {}, "tblrender": {} }
     # convert envinfo["tblrender"] to tds["tblrender"]
     for rdi in envinfo["tblrender"]:
@@ -424,12 +424,118 @@ def example_list_table(test_ref):
     return source_rst
 
 
-
-
-
-
-
 class TbldataDirective(SphinxDirective):
+    # tbldata directive specifies data to be included in a table, and also to be shown where the directive is
+    # located (making a partial table).  Example format is:
+    # .. tbldata: <table_name>
+    #
+    #    From Cell   |   To Cell  |  Value   |  Reference
+    #    basket      |   # cells  |  367     |  Albus-1989
+    #    basket      |   perkinje |  45,47   |  Loebner-1963
+    #
+    # .. tbldata: cell_counts
+    #
+    #    Cell Type   |   Species  |  Value   |  Reference
+    #    Basket      |   Cat      |  234     |  Albus-1989
+    #    Basket      |   Rat      |  298     |  Jones-2002
+    #
+    #
+    # Previous style:
+    #    :valrefs: <list of: <row, col, val, reference> in JSON format, without outer enclosing []>
+    # example:
+    # .. tbldata: cell_counts
+    #    :valrefs: ["basket", "cat", 234, "Albus-1989"], ["basket", "rat", 298, "Jones-2002"]
+    required_arguments = 1
+    option_spec = {
+        'valrefs': directives.unchanged_required
+    }
+    # this enables content in the directive
+    # include content as comment?
+    has_content = True
+    def run(self):
+        table_name = get_table_name(self)
+        target_node = make_target_node(self.env)
+        tbldata_node = tbldata()
+        # valrefs = self.options.get('valrefs')
+        content = self.content
+        if len(content) == 0:
+            msg = "No data provided for table %s" % table_name
+            msg = nodes.Text(msg, msg)
+            tbldata_node += msg
+            return [ target_node, tbldata_node ]
+        print("content=%s" % content)
+        input_rows = content  # .splitlines() # is already split
+        header = [x.strip() for x in input_rows[0].split("|")]
+        assert len(header) == 4
+        assert len(header[0]) > 0
+        assert len(header[1]) > 0
+        assert ":" not in header[0]
+        assert ":" not in header[1]
+        assert header[2] == "Value"
+        assert header[3] == "Reference"
+        valrefs_decoded = []
+        table_rst = """
+.. list-table:: List tables can have captions like this one.
+   :widths: 10 10 10 10
+   :header-rows: 1
+   :stub-columns: 0
+
+   * - %s
+     - %s
+     - Value
+     - Reference
+""" % (header[0], header[1])
+        for input_row in input_rows[1:]:
+            elements = [x.strip() for x in input_row.split("|")]
+            assert len(elements) == 4
+            assert ":" not in elements[0]
+            assert ":" not in elements[1]
+            assert len(elements[0]) > 0
+            assert len(elements[1]) > 0
+            assert len(elements[2]) > 0
+            assert len(elements[3]) > 0
+            valrefs = [ header[0] + ":" + elements[0], header[1] + ":" + elements[1], elements[2], elements[3]]
+            valrefs_decoded.append(valrefs)
+            if elements[2] == "-" and elements[3] == "-":
+                # no value or reference
+                rst_ref = "-"
+            else:
+                rst_ref = ":cite:`%s` :footcite:`%s`" % (elements[3], elements[3])
+            table_rst += "   * - %s\n     - %s\n     - %s\n     - %s\n" % (
+                elements[0], elements[1], elements[2], rst_ref)
+        # print("content=%s" % content)
+        # valrefs_decoded = json.loads( "[" + valrefs + "]" )
+        # target_node = make_target_node(self.env)
+        # box = nodes.block_quote()
+        # box = nodes.paragraph()
+        # prefix_message = "Data for table "
+        # prefix_node = nodes.paragraph(prefix_message, prefix_message)
+        # generate info to display at directive location using rst so can include citation that uses sphinxbibtex extension, e.g. ":cite:
+        # rst = "Data for *%s*\n\n%s\n\nSee :cite:`Albus-1989` for details." % (table_name, valrefs)
+        # tbldata_node = tbldata()
+        title = "Data for table :ref:`%s <table_%s>`" % (table_name, table_name)
+        rst = []
+        rst.append(".. cssclass:: tbldata-title")
+        rst.append("")         
+        rst.append(title)
+        rst.append("")
+        rst = "\n".join(rst) + table_rst
+        rst_nodes = render_rst(self, rst)
+        tbldata_node += rst_nodes
+        # rst_nodes = render_rst(self, rst)
+        # tbldata_node = tbldata('')
+        directive_info = { "docname": self.env.docname, "lineno": self.lineno, "table_name":table_name,
+            "valrefs":valrefs_decoded, "target":target_node} #  "tbldata_node": tbldata_node.deepcopy()
+        # save directive_info as attribute of object so is easy to retrieve in replace_tbldata_and_tblrender_nodes
+        tbldata_node.directive_info = directive_info
+        save_directive_info(self.env, 'tbldata', directive_info)
+        # box += prefix_node + tbldata_node + rst_nodes
+        return [ target_node, tbldata_node ]
+
+
+
+
+class TbldataDirective_old(SphinxDirective):
     # tbldata directive specifies data to be included in a table, and also to be shown where the directive is
     # format:
     # .. tbldata: <table_name>
@@ -610,8 +716,8 @@ def replace_tbldata_and_tblrender_nodes(app, doctree, fromdocname):
     # print("starting replace_tbldata_and_tblrender_nodes, docname='%s'" % fromdocname)
     env = app.builder.env
     tds = make_tds(getattr(env, envinfokey))
-    # print("tds=")
-    # pp.pprint(tds)
+    print("tds['tbldata']=")
+    pp.pprint(tds['tbldata'])
     # import pdb; pdb.set_trace()
     # tds has format:
     # {
@@ -650,7 +756,9 @@ def replace_tbldata_and_tblrender_nodes(app, doctree, fromdocname):
             # rowdata = [nodes.paragraph(text=row), ]
             rowdata = [nodes.strong(text=row), ]
             for col in col_labels:
-                if row in tds["tbldata"][table_name] and col in tds["tbldata"][table_name][row]:
+                if (table_name in tds["tbldata"]
+                    and row in tds["tbldata"][table_name]
+                    and col in tds["tbldata"][table_name][row]):
                     # entry = []
                     ddis = tds["tbldata"][table_name][row][col]  # data directive info entries
                     # print("row=%s, col=%s, ddis=" % (row, col))

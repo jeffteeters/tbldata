@@ -10,10 +10,10 @@ Some text about basket cells...
              ["From cell:stellate", "To cell:purkinje", "3, 26", "LoebnerEE-1989"],
              ["From cell:stellate", "To cell:stellate", "-", "-"]
 
-   Will this be
-   content in the Stellate2a
-   cell that can be parsed?
-
+   From cell   | To cell    | Value       | Reference
+   stellate    | # cells    | 2.1x10^7    | LoebnerEE-1989
+   stellate    | purkinje   | 3, 26       | LoebnerEE-1989
+   stellate    | stellate   | -           | -
 
 
 And some text after basket cell text.

@@ -14,6 +14,16 @@ Grannule2a Cell
              ["From cell:granule", "To cell:stellate", "?, 3.6x10^3", "LoebnerEE-1989"],
              ["From cell:granule", "To cell:granule", "-", "-"]
 
+   From cell    | To cell      | Value              | Reference
+   granule      | # cells      | 2.2x10^9           | LoebnerEE-1989
+   granule      | basket       | ?, 3.7x10^3        | LoebnerEE-1989
+   granule      | golgi        | ?, 5.2x10^3        | LoebnerEE-1989
+   granule      | purkinje     | 200x10^3, 8.5x10^4 | LoebnerEE-1989
+   granule      | stellate     | ?, 3.6x10^3        | LoebnerEE-1989
+   granule      | granule      | -                  | -
+
+
+
 Data about grannule cells are in this file.
 
 
