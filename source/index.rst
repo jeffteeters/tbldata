@@ -33,6 +33,7 @@ Hello world.  Below is a data table.
 .. tblrender:: num_cells
    :rows: "Cell type", "basket", "grannule", "stellate"
    :cols: "Species", "cat", "human"
+   :description:  Number of cells by species.
 
 
 Some text between the tables.
@@ -44,7 +45,10 @@ Some text between the tables.
 
 .. tblrender:: loebner_fig2
    :rows: "From cell", "basket", "golgi", "granule", "purkinje", "stellate"
-   :cols: "To cell", "# cells", "basket", "golgi", "granule", "purkinje", "stellate" 
+   :cols: "To cell", "# cells", "basket", "golgi", "granule", "purkinje", "stellate"
+   :description: Number of cells and connections between cells as: fan-out, fan-in.  Fan-out is
+      number of target cells each source contacts; fan-in is number source cells going to each
+      target. All values are for the cat.
 
 
 Indices and tables

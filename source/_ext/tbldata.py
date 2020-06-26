@@ -302,6 +302,10 @@ class TblrenderDirective(SphinxDirective):
     # tblrender directive specifies a table to render
     # format:
     # .. tblrender: <table_name>
+    #    :description: <description of table>
+    #    :row_axis_description: <description of row axis>
+    #    :col_axis_description: <description of column axis>
+    #    :value_description: <description of each value>
     #    :rows: <row axis name, list of rows, in JSON format, but without enclosing [ ]>
     #    :cols: <column axis name, list of columns, in JSON format, but without enclosing [ ]>
     # example:
@@ -310,11 +314,13 @@ class TblrenderDirective(SphinxDirective):
     #   :cols: "species", "cat", "rat"
     required_arguments = 1
     option_spec = {
+        'description': directives.unchanged_required,
         'rows': directives.unchanged_required,
         'cols': directives.unchanged_required,
     }
     def run(self):
         table_name = get_table_name(self)
+        description = self.options.get('description')
         rows = self.options.get('rows')
         cols = self.options.get('cols')
         rows_decoded = json.loads( "[" + rows + "]" )
@@ -329,10 +335,14 @@ class TblrenderDirective(SphinxDirective):
         label = ".. _table_%s:" % table_name
         rst = "\n" + label + "\n"
         rst_nodes = render_rst(self, rst)
+        # add description to rst for table
+        desc_rst = render_rst(self, "\n" + description + "\n")
+        rst_nodes += desc_rst
 #        .. _table_loebner_fig2a:
 #    OR patch labels and targets at end.  How to make reference to table.
         directive_info = {"docname": self.env.docname, "table_name":table_name, "row_labels":row_labels,
              "row_title": row_title, "col_labels":col_labels, "col_title": col_title, # "target": target_node,
+             "desc_rst": desc_rst,
              "lineno": self.lineno}
         # save directive_info as attribute of object so is easy to retrieve in replace_tbldata_and_tblrender_nodes
         tblrender_node.directive_info = directive_info
@@ -521,17 +531,29 @@ class TbldataDirective(SphinxDirective):
         rst.append("")
         rst = "\n".join(rst) + table_rst
         rst_nodes = render_rst(self, rst)
-        tbldata_node += rst_nodes
+        # tbldata_node += rst_nodes
         # rst_nodes = render_rst(self, rst)
         # tbldata_node = tbldata('')
         directive_info = { "docname": self.env.docname, "lineno": self.lineno, "table_name":table_name,
             "valrefs":valrefs_decoded, "target":target_node} #  "tbldata_node": tbldata_node.deepcopy()
         # save directive_info as attribute of object so is easy to retrieve in replace_tbldata_and_tblrender_nodes
         tbldata_node.directive_info = directive_info
+        # print("after saving directive info, tbldata node has:")
+        # pp.pprint(dir(tbldata_node))
         save_directive_info(self.env, 'tbldata', directive_info)
-        # box += prefix_node + tbldata_node + rst_nodes
-        return [ target_node, tbldata_node ]
+        print("saved directive_info to tbldata_node id = %s" % id(tbldata_node))
+        output_nodes = [target_node, tbldata_node, ] + rst_nodes
+        return output_nodes
+        # old code
+        tbldata_node += target_node
+        tbldata_node += rst_nodes
+        # print("tbldata_node: %s" % tbldata_node)
+        # di = tbldata_node.directive_info
+        # pp.pprint(di)
 
+        # box += prefix_node + tbldata_node + rst_nodes
+        # return [ target_node, tbldata_node ]
+        return [ tbldata_node, ]
 
 
 
@@ -739,6 +761,19 @@ def replace_tbldata_and_tblrender_nodes(app, doctree, fromdocname):
     #         "target": target_node, "tblrender_node": tblrender_node.deepcopy()}
 
     # print("visiting tblrender nodes")
+
+    # insert description into tbldata tables
+    # temporary, try to get directive info for tbldata
+    with open('doctree.txt', 'w') as fp:  # Use file to refer to the file object
+        fp.write(doctree.pformat())
+    import pdb; pdb.set_trace()
+    for node in doctree.traverse(tbldata):
+        try:
+            di = node.directive_info
+            print("got directive info for node id=%s" % id(node))
+        except:
+            print("at start of function, unable to get tbldata directive info, node id = %s" % id(node))
+    desc_rsts = {}  # holds desc_rst for each table
     for node in doctree.traverse(tblrender):
         di = node.directive_info
         # print ("visiting node, source=%s" % node.source)
@@ -746,10 +781,12 @@ def replace_tbldata_and_tblrender_nodes(app, doctree, fromdocname):
         # {'docname': 'index', 'table_name': 'num_cells', 'rows': '"Cell type", stellate, grannule',
         # 'cols': 'Species, cat human', 'target': <target: >}
         table_name = di['table_name']
+        desc_rsts[table_name] = di['desc_rst']
         row_title = di["row_title"]
         row_labels = di["row_labels"]
         col_title = di["col_title"]
         col_labels = di["col_labels"]
+        # description = di["description"]
         tabledata = []
         for row_num in range(len(row_labels)):
             row = row_labels[row_num]
@@ -851,9 +888,19 @@ def replace_tbldata_and_tblrender_nodes(app, doctree, fromdocname):
         colwidths = [1] * len(header)  # generates list like: [1, 1, 1, ... ]
         header_nodes = [nodes.paragraph(text=cell) for cell in header]
         table = make_docutils_table(header_nodes, colwidths, tabledata, True)
-        # table = make_docutils_table(header, colwidths, tabledata)
         node.replace_self(table)
-    
+    # insert description into tbldata tables
+    for node in doctree.traverse(tbldata):
+        try:
+            di = node.directive_info
+        except:
+            print("unable to get tbldata directive info, node id = %s" % id(node))
+            pp.pprint(node)
+            import pdb; pdb.set_trace()
+        table_name = di['table_name']
+        desc_rst = desc_rsts[table_name]
+        # insert desc_rsts before tables
+        node.children[2:2] = desc_rst
     return
 
         # scratch (old version of code) below

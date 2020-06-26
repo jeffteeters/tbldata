@@ -12,5 +12,7 @@ Each row in the following table lists source cells on the left and destination c
 .. tblrender:: loebner_fig2a
    :rows: "From cell", "basket", "golgi", "granule", "purkinje", "stellate"
    :cols: "To cell", "# cells", "basket", "golgi", "granule", "purkinje", "stellate" 
-
+   :description: Number of cells and connections between cells as: *fan-out*, **fan-in**.  Fan-out is	
+      number of target cells each source contacts; fan-in is number source cells going to each
+      target. All values are for the cat.
 
