@@ -1,6 +1,7 @@
 from docutils import nodes
 from docutils.parsers.rst import Directive
 
+
 from sphinx.locale import _
 from sphinx.util.docutils import SphinxDirective
 
@@ -283,6 +284,7 @@ def make_target_node(env):
     target_node = nodes.target('','',ids=[target_id])
     return target_node
 
+
 def render_rst(d, rst):
     # convert restructured text in rst to nodes for output for directive "d"
     # this copied from sphinxcontrib.datatemplates
@@ -433,6 +435,43 @@ def example_list_table(test_ref):
 """ % (test_ref, test_ref)
     return source_rst
 
+def example_grid_table():
+    source_rst = """
+Test grid table.
+
++------------------------+----------------------------------+
+|                        |               To Cell            |
++------------------------+------------+----------+----------+
+| Header row, column 1   | Header 2   | Header 3 | Header 4 |
+| (header rows optional) |            |          |          |
++========================+============+==========+==========+
+| body row 1, column 1   | column 2   | column 3 | column 4 |
++------------------------+------------+----------+----------+
+| body row 2             | ...        | ...      |          |
++------------------------+------------+----------+----------+
+"""
+    return source_rst
+
+
+# def make_grid_table_rst():
+#     import docutils
+#     # from: https://www.generic-mapping-tools.org/sphinx_gmt/v0.1.1/_modules/docutils/parsers/rst.html
+#     parser = docutils.parsers.rst.Parser()
+#     input = example_grid_table()
+#     # from http://code.nabla.net/doc/docutils/api/docutils/utils/docutils.utils.new_document.html
+#     settings = docutils.frontend.OptionParser(
+#     components=(docutils.parsers.rst.Parser,)
+#     ).get_default_values()
+
+# 3. Create a new empty `docutils.nodes.document` tree::
+
+#        document = docutils.utils.new_document(source, settings)
+
+#    See `docutils.utils.new_document()` for parameter details.
+
+# 4. Run the parser, populating the document tree::
+
+#        parser.parse(input, document)
 
 class TbldataDirective(SphinxDirective):
     # tbldata directive specifies data to be included in a table, and also to be shown where the directive is
@@ -670,7 +709,7 @@ class TbldataDirective_old(SphinxDirective):
 #     env.tbldata_all_tbldata = [tbldata for tbldata in env.tbldata_all_tbldata
 #                           if tbldata['docname'] != docname]
 
-def make_docutils_table(header, colwidths, data, hasLinks=False):
+def make_docutils_table(header, colwidths, data, hasLinks=False, col_title=None, tableName=None, descriptionRst=None):
     # hasLinks set True if nodes made before call
     # from:
     # https://agateau.com/2015/docutils-snippets/
@@ -681,15 +720,30 @@ def make_docutils_table(header, colwidths, data, hasLinks=False):
     #        ('Orange Juice', '3', '1', '3'),
     #        ('Croissant', '1.5', '2', '3'),
     #    ]
+    # tableName is added to table top
+    # col_title is added to top row and spans all columns except first
+    # descriptionRst is added before table body
     table = nodes.table()
 
-    tgroup = nodes.tgroup(cols=len(header))
+    numcols = len(header)
+    tgroup = nodes.tgroup(cols=numcols)
     table += tgroup
     for colwidth in colwidths:
         tgroup += nodes.colspec(colwidth=colwidth)
-
     thead = nodes.thead()
     tgroup += thead
+    # include abscissaLabel header if present (spans columns 2-end, describes those columns.  eg. "To cell")
+    if col_title is not None:
+        row = nodes.row()
+        # first cell (entry) has no label
+        entry = nodes.entry()
+        row += entry
+        # second cell spans all the others and has text
+        entry = nodes.entry(morecols=(numcols - 2))
+        row += entry
+        entry += nodes.paragraph(text=col_title)
+        thead += row
+    # normal header
     thead += create_table_row(header, hasLinks)
 
     tbody = nodes.tbody()
@@ -764,16 +818,6 @@ def replace_tbldata_and_tblrender_nodes(app, doctree, fromdocname):
 
     # insert description into tbldata tables
     # temporary, try to get directive info for tbldata
-    with open('doctree.txt', 'w') as fp:  # Use file to refer to the file object
-        fp.write(doctree.pformat())
-    import pdb; pdb.set_trace()
-    for node in doctree.traverse(tbldata):
-        try:
-            di = node.directive_info
-            print("got directive info for node id=%s" % id(node))
-        except:
-            print("at start of function, unable to get tbldata directive info, node id = %s" % id(node))
-    desc_rsts = {}  # holds desc_rst for each table
     for node in doctree.traverse(tblrender):
         di = node.directive_info
         # print ("visiting node, source=%s" % node.source)
@@ -781,7 +825,6 @@ def replace_tbldata_and_tblrender_nodes(app, doctree, fromdocname):
         # {'docname': 'index', 'table_name': 'num_cells', 'rows': '"Cell type", stellate, grannule',
         # 'cols': 'Species, cat human', 'target': <target: >}
         table_name = di['table_name']
-        desc_rsts[table_name] = di['desc_rst']
         row_title = di["row_title"]
         row_labels = di["row_labels"]
         col_title = di["col_title"]
@@ -887,7 +930,8 @@ def replace_tbldata_and_tblrender_nodes(app, doctree, fromdocname):
         header = [row_title] + col_labels
         colwidths = [1] * len(header)  # generates list like: [1, 1, 1, ... ]
         header_nodes = [nodes.paragraph(text=cell) for cell in header]
-        table = make_docutils_table(header_nodes, colwidths, tabledata, True)
+        table = make_docutils_table(header_nodes, colwidths, tabledata, hasLinks=True, col_title=col_title)
+        # grid_rst = make_grid_table_rst()
         node.replace_self(table)
     # insert description into tbldata tables
     for node in doctree.traverse(tbldata):
@@ -895,10 +939,14 @@ def replace_tbldata_and_tblrender_nodes(app, doctree, fromdocname):
             di = node.directive_info
         except:
             print("unable to get tbldata directive info, node id = %s" % id(node))
-            pp.pprint(node)
-            import pdb; pdb.set_trace()
+            return
+            # with open("doctree.txt", "w") as fp:
+            #     fp.write(doctree.pformat())
+            # pp.pprint(node)
+            # import pdb; pdb.set_trace()
+        print("--**-- found directive_info for node id=%s" % id(node))
         table_name = di['table_name']
-        desc_rst = desc_rsts[table_name]
+        desc_rst = tds['tblrender'][table_name][0]['desc_rst']
         # insert desc_rsts before tables
         node.children[2:2] = desc_rst
     return
