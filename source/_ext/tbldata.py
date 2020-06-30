@@ -1,6 +1,10 @@
 from docutils import nodes
 from docutils.parsers.rst import Directive
 
+# folloing for function parse_grid_table
+import docutils.statemachine
+import docutils.parsers.rst.tableparser
+
 
 from sphinx.locale import _
 from sphinx.util.docutils import SphinxDirective
@@ -299,6 +303,62 @@ def render_rst(d, rst):
     nested_parse_with_titles(d.state, result, node)
     return node.children 
 
+def parse_grid_table(text):
+    # Clean up the input: get rid of empty lines and strip all leading and                                                                   
+    # trailing whitespace.                                                                                                                   
+    lines = filter(bool, (line.strip() for line in text.splitlines()))
+    parser = docutils.parsers.rst.tableparser.GridTableParser()
+    return parser.parse(docutils.statemachine.StringList(list(lines)))
+
+
+# folling adapted from:
+# https://sourceforge.net/p/docutils/code/HEAD/tree/trunk/docutils/docutils/parsers/rst/states.py#l1786
+def build_table(tabledata, tableline, stub_columns=0, widths=None):
+    colwidths, headrows, bodyrows = tabledata
+    table = nodes.table()
+    if widths == 'auto':
+        table['classes'] += ['colwidths-auto']
+    elif widths: # "grid" or list of integers
+        table['classes'] += ['colwidths-given']
+    tgroup = nodes.tgroup(cols=len(colwidths))
+    table += tgroup
+    for colwidth in colwidths:
+        colspec = nodes.colspec(colwidth=colwidth)
+        if stub_columns:
+            colspec.attributes['stub'] = 1
+            stub_columns -= 1
+        tgroup += colspec
+    if headrows:
+        thead = nodes.thead()
+        tgroup += thead
+        for row in headrows:
+            thead += build_table_row(row, tableline)
+    tbody = nodes.tbody()
+    tgroup += tbody
+    for row in bodyrows:
+        tbody += build_table_row(row, tableline)
+    return [table]
+
+def build_table_row(rowdata, tableline):
+    row = nodes.row()
+    for cell in rowdata:
+        if cell is None:
+            continue
+        morerows, morecols, offset, cellblock = cell
+        attributes = {}
+        if morerows:
+            attributes['morerows'] = morerows
+        if morecols:
+            attributes['morecols'] = morecols
+        entry = nodes.entry(**attributes)
+        row += entry
+        if ''.join(cellblock):
+            # import pdb; pdb.set_trace()
+            entry += nodes.paragraph(text=" ".join(cellblock).strip())
+            # self.nested_parse(cellblock, input_offset=tableline+offset, node=entry)
+    return row
+
+
 # class TblrenderDirective(Directive):
 class TblrenderDirective(SphinxDirective):
     # tblrender directive specifies a table to render
@@ -319,12 +379,22 @@ class TblrenderDirective(SphinxDirective):
         'description': directives.unchanged_required,
         'rows': directives.unchanged_required,
         'cols': directives.unchanged_required,
+        'gridlayout': directives.unchanged,
     }
     def run(self):
         table_name = get_table_name(self)
         description = self.options.get('description')
         rows = self.options.get('rows')
         cols = self.options.get('cols')
+        gridlayout = self.options.get('gridlayout')
+        if gridlayout is not None:
+            print("found gridlayout:\n%s" % gridlayout)
+            tabledata = parse_grid_table(gridlayout)
+            pp.pprint(tabledata)
+            tableline = self.lineno  # a guess
+            grid_table_rst = build_table(tabledata, tableline, widths="grid", stub_columns=1)
+        else:
+            grid_table_rst = []
         rows_decoded = json.loads( "[" + rows + "]" )
         row_title = rows_decoded[0]
         row_labels = rows_decoded[1:]
@@ -338,8 +408,9 @@ class TblrenderDirective(SphinxDirective):
         rst = "\n" + label + "\n"
         rst_nodes = render_rst(self, rst)
         # add description to rst for table
-        desc_rst = render_rst(self, "\n" + description + "\n")
-        rst_nodes += desc_rst
+        desc_rst = render_rst(self, "\n" + description + "\n\n")
+        # rst_nodes += desc_rst + grid_table_rst
+        rst_nodes += grid_table_rst
 #        .. _table_loebner_fig2a:
 #    OR patch labels and targets at end.  How to make reference to table.
         directive_info = {"docname": self.env.docname, "table_name":table_name, "row_labels":row_labels,
