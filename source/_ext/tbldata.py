@@ -310,16 +310,80 @@ def parse_grid_table(text):
     parser = docutils.parsers.rst.tableparser.GridTableParser()
     return parser.parse(docutils.statemachine.StringList(list(lines)))
 
+def extract_gridtable_properties(tabledata):
+    # get row and column titles and labels
+    # Format of tabledata, from:
+    # http://code.nabla.net/doc/docutils/api/docutils/parsers/rst/tableparser/docutils.parsers.rst.tableparser.GridTableParser.html
+    # The first item is a list containing column widths (colspecs).
+    # The second item is a list of head rows, and the third is a list of body rows.
+    # Each row contains a list of cells. Each cell is either None (for a cell unused because of another cell’s span),
+    # or a tuple. A cell tuple contains four items: the number of extra rows used by the cell in a vertical span
+    # (morerows); the number of extra columns used by the cell in a horizontal span (morecols);
+    # the line offset of the first line of the cell contents; and the cell contents, a list of lines of text.
+
+    def slt(sl):
+        # return text in StringList
+        return " ".join(sl).strip()
+
+    colwidths, headrows, bodyrows = tabledata
+    num_cols = len(colwidths)
+    num_headrows = len(headrows)
+    assert num_headrows in (1, 2), "Must be one or two header rows, found: %s" % num_headrows
+    if num_headrows == 2:
+        head_col_types = ""
+        for i in range(num_cols):
+            if headrows[0][i] is not None:
+                if headrows[1][i] is None:
+                    head_col_types += "u"  # upper row only has content
+                else:
+                    head_col_types += "b"  # both upper and lower rows
+            else:
+                assert headrows[1][i] is not None, "both upper and lower header rows are None, should not happen"
+                head_col_types += "l"  # lower row only has content
+        assert head_col_types[0] == "u", "First column of table with two hearder rows must span both columns"
+        bc_index = head_col_types.find("b")
+        if bc_index == -1:
+            sys.exit("Two header rows in table, but no column with a column title (spaning both header rows)")
+        if head_col_types[bc_index+1:] != "l"*(num_cols - bc_index - 1):
+            sys.exit("Two header rows in table, but columns after column with title"
+                " (spanning both header rows) are not all in lower row only.\nhead_col_types=%s, bc_index=%s\n"
+                " head_col_types[bc_index+1:]='%s', 'l'*(num_cols - bc_index -1 )='%s'" %
+                (head_col_types, bc_index, head_col_types[bc_index+1:], "l"*(num_cols - bc_index)))
+        row_title = slt(headrows[0][0][3])
+        col_labels = [ slt(headrows[0][i][3]) if head_col_types[i] == 'u'
+                                                  else slt(headrows[1][i][3]) for i in range(1, num_cols) ]
+        col_title_span_text = slt(headrows[0][bc_index][3])  # e.g. "Target cell"
+        col_title_parts = [col_labels[i] for i in range(bc_index - 1)] + [ col_title_span_text ]
+        col_title = " or ".join(col_title_parts)
+        row_labels = [slt(bodyrows[i][0][3]) for i in range (len(bodyrows))]
+        row_map = { row_labels[i]:i for i in range(len(row_labels))}
+        col_map = { col_labels[i]:i for i in range(len(col_labels))}
+        print("row_title='%s'" % row_title)
+        print("row_labels='%s'" % row_labels)
+        print("col_title='%s'" % col_title)
+        print("col_labels='%s'" % col_labels)
+        print("row_map=%s" % row_map)
+        print("col_map=%s" % col_map)
+        grid_table_properties = { "tabledata": tabledata,
+            "row_title": row_title, "row_labels": row_labels,
+            "col_title": col_title, "col_labels": col_labels,
+            "row_map":row_map, "col_map":col_map}
+    else:
+        sys.exit("Grid table with only one header row not implemented")
+    return grid_table_properties
+
 
 # folling adapted from:
 # https://sourceforge.net/p/docutils/code/HEAD/tree/trunk/docutils/docutils/parsers/rst/states.py#l1786
-def build_table(tabledata, tableline, stub_columns=0, widths=None):
+def build_table(tabledata, tableline, stub_columns=0, widths=None, classes=None):
     colwidths, headrows, bodyrows = tabledata
     table = nodes.table()
     if widths == 'auto':
         table['classes'] += ['colwidths-auto']
     elif widths: # "grid" or list of integers
         table['classes'] += ['colwidths-given']
+    if classes is not None:
+        table['classes'] += classes.split()
     tgroup = nodes.tgroup(cols=len(colwidths))
     table += tgroup
     for colwidth in colwidths:
@@ -390,11 +454,16 @@ class TblrenderDirective(SphinxDirective):
         if gridlayout is not None:
             print("found gridlayout:\n%s" % gridlayout)
             tabledata = parse_grid_table(gridlayout)
-            pp.pprint(tabledata)
+            print("headrows=")
+            pp.pprint(tabledata[1])
+            print("bodyrows=")
+            pp.pprint(tabledata[2])
+            grid_table_properties = extract_gridtable_properties(tabledata)
             tableline = self.lineno  # a guess
-            grid_table_rst = build_table(tabledata, tableline, widths="grid", stub_columns=1)
+            grid_table_rst = build_table(tabledata, tableline, widths="grid", stub_columns=1, classes="tblrender")
         else:
             grid_table_rst = []
+            grid_table_properties = None
         rows_decoded = json.loads( "[" + rows + "]" )
         row_title = rows_decoded[0]
         row_labels = rows_decoded[1:]
@@ -415,8 +484,8 @@ class TblrenderDirective(SphinxDirective):
 #    OR patch labels and targets at end.  How to make reference to table.
         directive_info = {"docname": self.env.docname, "table_name":table_name, "row_labels":row_labels,
              "row_title": row_title, "col_labels":col_labels, "col_title": col_title, # "target": target_node,
-             "desc_rst": desc_rst,
-             "lineno": self.lineno}
+             "desc_rst": desc_rst, "lineno": self.lineno,
+             "grid_table_properties": grid_table_properties}
         # save directive_info as attribute of object so is easy to retrieve in replace_tbldata_and_tblrender_nodes
         tblrender_node.directive_info = directive_info
         save_directive_info(self.env, 'tblrender', directive_info)
