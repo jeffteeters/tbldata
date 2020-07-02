@@ -364,13 +364,13 @@ def extract_gridtable_properties(tabledata):
         print("col_labels='%s'" % col_labels)
         print("row_map=%s" % row_map)
         print("col_map=%s" % col_map)
-        grid_table_properties = { "tabledata": tabledata,
+        gridtable_properties = { "tabledata": tabledata,
             "row_title": row_title, "row_labels": row_labels,
             "col_title": col_title, "col_labels": col_labels,
             "row_map":row_map, "col_map":col_map}
     else:
         sys.exit("Grid table with only one header row not implemented")
-    return grid_table_properties
+    return gridtable_properties
 
 
 # folling adapted from:
@@ -458,12 +458,12 @@ class TblrenderDirective(SphinxDirective):
             pp.pprint(tabledata[1])
             print("bodyrows=")
             pp.pprint(tabledata[2])
-            grid_table_properties = extract_gridtable_properties(tabledata)
+            gridtable_properties = extract_gridtable_properties(tabledata)
             tableline = self.lineno  # a guess
             grid_table_rst = build_table(tabledata, tableline, widths="grid", stub_columns=1, classes="tblrender")
         else:
             grid_table_rst = []
-            grid_table_properties = None
+            gridtable_properties = None
         rows_decoded = json.loads( "[" + rows + "]" )
         row_title = rows_decoded[0]
         row_labels = rows_decoded[1:]
@@ -485,7 +485,7 @@ class TblrenderDirective(SphinxDirective):
         directive_info = {"docname": self.env.docname, "table_name":table_name, "row_labels":row_labels,
              "row_title": row_title, "col_labels":col_labels, "col_title": col_title, # "target": target_node,
              "desc_rst": desc_rst, "lineno": self.lineno,
-             "grid_table_properties": grid_table_properties}
+             "gridtable_properties": gridtable_properties}
         # save directive_info as attribute of object so is easy to retrieve in replace_tbldata_and_tblrender_nodes
         tblrender_node.directive_info = directive_info
         save_directive_info(self.env, 'tblrender', directive_info)
@@ -919,6 +919,105 @@ def make_docutils_test_table():
     table = make_docutils_table(header, colwidths, data)
     return table
 
+def format_table_data(tds):
+    # format data provided in tbldata directives into nodes that can be inserted into tables
+    # (specified by the tblrender directives)
+    # Returns dictionary ftd (formatted table data):
+    # ftd[table_name][row][col] = <formatted data>
+    ftd = {}
+    for table_name in tds["tabldata"]:
+        for row in tds["tabldata"][table_name]:
+            for col in tds["tabldata"][table_name][row]:
+                ddis = tds["tbldata"][table_name][row][col]
+                para = nodes.paragraph()
+                first_node = True
+                for ddi in ddis:
+                    target = ddi["target"]
+                    valref = ddi["valref"]
+                    vrow, vcol, vval, vref = valref
+                    # check for "-" in both value and vref.  If found, just display '-' without a link to a target
+                    # this is used to allow including dashes to indicate there can be no value for this table cell
+                    if vval == '-' and vref == '-':
+                        newnode = nodes.Text('-', '-')
+                    else:
+                        # create a reference
+                        newnode = nodes.reference('','')
+                        newnode['refdocname'] = ddi['docname']
+                        newnode['refuri'] = app.builder.get_relative_uri(
+                            fromdocname, ddi['docname'])
+                        newnode['refuri'] += '#' + ddi['target']['refid']
+                        # innernode = nodes.emphasis(vref, vref)
+                        innernode = nodes.emphasis(vval, vval)
+                        newnode.append(innernode)
+                    # seperator = "; " if not first_node else ""
+                    if not first_node:
+                        seperator = "; "
+                        para += nodes.Text(seperator, seperator)
+                    first_node = False
+                    # val_str = "%s%s " % (seperator, vval)
+                    # para += nodes.Text(val_str, val_str)
+                    para += newnode
+                # save para in ftd
+                if table_name not in ftd:
+                    ftd[table_name] = {}
+                if row not in ftd[table_name]:
+                    ftd[table_name][row] = {}
+                ftd[table_name][row][col] = para
+    return ftd
+
+def generate_gridtable(table_name, tds, gridtable_properties, fromdocname):
+    # gridtable_properties = { "tabledata": tabledata,
+    # "row_title": row_title, "row_labels": row_labels,
+    # "col_title": col_title, "col_labels": col_labels,
+    # "row_map":row_map, "col_map":col_map}
+    if table_name not in tds["tbldata"]:
+        sys.exit("No data provided for gridtable %s" % table_name)
+    row_map = gridtable_properties['row_map']
+    col_map = gridtable_properties['col_map']
+    tabledata = gridtable_properties['tabledata']
+    colwidths, headrows, bodyrows = tabledata
+    gridtable_data = {}
+    for row in tds["tbldata"][table_name]:
+        assert row in row_map, "Row '%s' specified in data table not present in gridtable '%s'" % (row, table_name)
+        for col in tds["tbldata"][table_name][row]:
+            assert col in col_map, "Col '%s' specified in data table not present in gridtable '%s'" % (col, table_name)
+            ddis = tds["tbldata"][table_name][row][col]
+            para = nodes.paragraph()
+            first_node = True
+            for ddi in ddis:
+                target = ddi["target"]
+                valref = ddi["valref"]
+                vrow, vcol, vval, vref = valref
+                # check for "-" in both value and vref.  If found, just display '-' without a link to a target
+                # this is used to allow including dashes to indicate there can be no value for this table cell
+                if vval == '-' and vref == '-':
+                    newnode = nodes.Text('-', '-')
+                else:
+                    # create a reference
+                    newnode = nodes.reference('','')
+                    newnode['refdocname'] = ddi['docname']
+                    newnode['refuri'] = app.builder.get_relative_uri(
+                        fromdocname, ddi['docname'])
+                    newnode['refuri'] += '#' + ddi['target']['refid']
+                    # innernode = nodes.emphasis(vref, vref)
+                    innernode = nodes.emphasis(vval, vval)
+                    newnode.append(innernode)
+                # seperator = "; " if not first_node else ""
+                if not first_node:
+                    seperator = "; "
+                    para += nodes.Text(seperator, seperator)
+                first_node = False
+                # val_str = "%s%s " % (seperator, vval)
+                # para += nodes.Text(val_str, val_str)
+                para += newnode
+            # save para in gridtable_data
+            if row not in gridtable_data:
+                gridtable_data[row] = {}
+            gridtable_data[row][col] = para
+
+
+
+
 def replace_tbldata_and_tblrender_nodes(app, doctree, fromdocname):
     # Does the following:
     #
@@ -969,6 +1068,11 @@ def replace_tbldata_and_tblrender_nodes(app, doctree, fromdocname):
         row_labels = di["row_labels"]
         col_title = di["col_title"]
         col_labels = di["col_labels"]
+        gridtable_properties = di["gridtable_properties"]
+        if gridtable_properties is not None:
+            gridtable_rst = generate_gridtable(table_name, tds, gridtable_properties, fromdocname)
+        else:
+            gridtable_rst = []
         # description = di["description"]
         tabledata = []
         for row_num in range(len(row_labels)):
