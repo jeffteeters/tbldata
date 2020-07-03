@@ -86,23 +86,24 @@ def make_tds(envinfo):
     # { "tblrender":  # information from each tblrender directive, used for making link from tbldata directive node to table
     #     { <table_name>: [ <rdi>, ...], ... }
     #
-    def get_tbldata_label(tag, table_name, fdocname, flineno, tri):
+    def get_tbldata_label(tag, table_name, fdocname, flineno, tri, tpi):
         # convert tag to title, label
         # tag is either "title:label", or label
         # if just label, need to find title.
         # do safety check for same title in table row and column
         # tri - table render info (from tds["tblrender"]["table_name"][0])
+        # tpi - table properties, tri["table_properties"]
         if ":" in tag:
             title, label = tag.split(":")
-            if title == tri['row_title']:
-                if label not in tri['row_labels']:
+            if title == tpi['row_title']:
+                if label not in tpi['row_labels']:
                     print("ERROR: tbldata for table '%s' in %s line %s references '%s', but '%s' is not a "
                         "valid option for '%s' in "
                         "tblrender defined in file %s line %s" % (table_name, fdocname, flineno, tag, label,
                         title, tri["docname"], tri["lineno"]))
                     sys.exit("Aborting")
-            elif title == tri['col_title']:
-               if label not in tri['col_labels']:
+            elif title == tpi['col_title']:
+               if label not in tpi['col_labels']:
                     print("ERROR: tbldata for table '%s' in %s line %s references '%s', but '%s' is not a "
                         "valid option for '%s' in "
                         "tblrender defined in file %s line %s" % (table_name, fdocname, flineno, tag, label,
@@ -111,27 +112,27 @@ def make_tds(envinfo):
             else:
                 print("ERROR: tbldata for table '%s' in %s line %s references title '%s' which is not a "
                     "valid title; should be either '%s' or '%s' for"
-                    "tblrender defined in file %s line %s" % (table_name, fdocname, flineno, title, tri['row_title'],
-                    tri['col_title'], tri["docname"], tri["lineno"]))
+                    "tblrender defined in file %s line %s" % (table_name, fdocname, flineno, title, tpi['row_title'],
+                    tpi['col_title'], tri["docname"], tri["lineno"]))
                 sys.exit("Aborting")
         else:
             label = tag
-            inrows = label in tri['row_labels']
-            incols = label in tri['col_labels']
+            inrows = label in tpi['row_labels']
+            incols = label in tpi['col_labels']
             if inrows and incols:
                 print("ERROR: tbldata for table '%s' in file %s line %s references '%s', which is ambiguous "
                     "since it could be either a '%s' or '%s' in "
                     "tblrender defined in file %s line %s" % (table_name, fdocname, flineno, label,
-                    tri['row_title'], tri['col_title'], tri["docname"], tri["lineno"]))
+                    tpi['row_title'], tpi['col_title'], tri["docname"], tri["lineno"]))
                 sys.exit("Aborting")
             if inrows:
-                title = tri['row_title']
+                title = tpi['row_title']
             elif incols:
-                title = tri['col_title']
+                title = tpi['col_title']
             else:
                 print("tbldata for table '%s' in %s line %s references '%s' which is not a valid option for '%s' or '%s' "
-                    "in tblrender defined in %s line %s" %(table_name, fdocname, flineno, tag, tri['row_title'],
-                    tri['col_title'], tri["docname"], tri["lineno"]))
+                    "in tblrender defined in %s line %s" %(table_name, fdocname, flineno, tag, tpi['row_title'],
+                    tpi['col_title'], tri["docname"], tri["lineno"]))
                 sys.exit("Aborting")
         return [title, label]
 
@@ -167,22 +168,23 @@ def make_tds(envinfo):
         # print("valrefs=%s" % valrefs)
         # valrefs_decoded = json.loads( "[" + valrefs + "]" )
         tri = tds["tblrender"][table_name][0]
+        tpi = tri["table_properties"]
         for data_quad in valrefs:
             tag1, tag2, value, reference = data_quad
-            title1, label1 = get_tbldata_label(tag1, table_name, docname, lineno, tri)
-            title2, label2 = get_tbldata_label(tag2, table_name, docname, lineno, tri)
+            title1, label1 = get_tbldata_label(tag1, table_name, docname, lineno, tri, tpi)
+            title2, label2 = get_tbldata_label(tag2, table_name, docname, lineno, tri, tpi)
             if title1 == title2:
                 print("Error: tbldata for table '%s', file %s line %s, row and column are both in '%s'.  Entry is:" % (
                     table_name, docname, lineno, title1))
                 print("%s, %s, %s, %s" % (tag1, tag2, value, reference))
                 sys.exit("Aborting")
-            if title1 == tri["row_title"]:
-                assert title2 == tri["col_title"]
+            if title1 == tpi["row_title"]:
+                assert title2 == tpi["col_title"]
                 row = label1
                 col = label2
             else:
-                assert title2 == tri["row_title"]
-                assert title1 == tri["col_title"]
+                assert title2 == tpi["row_title"]
+                assert title1 == tpi["col_title"]
                 row = label2
                 col = label1             
             # row, col, value, reference = data_quad
@@ -354,20 +356,22 @@ def extract_gridtable_properties(tabledata):
                                                   else slt(headrows[1][i][3]) for i in range(1, num_cols) ]
         col_title_span_text = slt(headrows[0][bc_index][3])  # e.g. "Target cell"
         col_title_parts = [col_labels[i] for i in range(bc_index - 1)] + [ col_title_span_text ]
-        col_title = " or ".join(col_title_parts)
+        expanded_col_title = " or ".join(col_title_parts)
+        col_title = col_title_span_text
         row_labels = [slt(bodyrows[i][0][3]) for i in range (len(bodyrows))]
-        row_map = { row_labels[i]:i for i in range(len(row_labels))}
-        col_map = { col_labels[i]:i for i in range(len(col_labels))}
+        # row_map = { row_labels[i]:i for i in range(len(row_labels))}
+        # col_map = { col_labels[i]:i for i in range(len(col_labels))}
         print("row_title='%s'" % row_title)
         print("row_labels='%s'" % row_labels)
         print("col_title='%s'" % col_title)
         print("col_labels='%s'" % col_labels)
-        print("row_map=%s" % row_map)
-        print("col_map=%s" % col_map)
-        gridtable_properties = { "tabledata": tabledata,
+        # print("row_map=%s" % row_map)
+        # print("col_map=%s" % col_map)
+        gridtable_properties = { # "tabledata": tabledata,
             "row_title": row_title, "row_labels": row_labels,
             "col_title": col_title, "col_labels": col_labels,
-            "row_map":row_map, "col_map":col_map}
+            "expanded_col_title": expanded_col_title }
+            # "row_map":row_map, "col_map":col_map
     else:
         sys.exit("Grid table with only one header row not implemented")
     return gridtable_properties
@@ -441,8 +445,9 @@ class TblrenderDirective(SphinxDirective):
     required_arguments = 1
     option_spec = {
         'description': directives.unchanged_required,
-        'rows': directives.unchanged_required,
-        'cols': directives.unchanged_required,
+        'rows': directives.unchanged,
+        'cols': directives.unchanged,
+        'expanded_col_title': directives.unchanged,
         'gridlayout': directives.unchanged,
     }
     def run(self):
@@ -450,26 +455,52 @@ class TblrenderDirective(SphinxDirective):
         description = self.options.get('description')
         rows = self.options.get('rows')
         cols = self.options.get('cols')
+        expanded_col_title = self.options.get('expanded_col_title') # e.g.: Cell count or target cell
+        if rows is not None or cols is not None:
+            assert rows is not None and cols is not None and expanded_col_title is not None, ("If rows or cols"
+                " specified, must specify all of: rows, cols, expanded_col_title")
+            rows_decoded = json.loads( "[" + rows + "]" )
+            row_title = rows_decoded[0]
+            row_labels = rows_decoded[1:]
+            cols_decoded = json.loads( "[" + cols + "]" )
+            col_title = cols_decoded[0]
+            col_labels = cols_decoded[1:]
+            expanded_col_title = expanded_col_title.strip("'"+ '"' + " ")
+            ptable_properties = {"row_title":row_title, "row_labels":row_labels,
+                "col_title":col_title, "col_labels":col_labels, "expanded_col_title":expanded_col_title}
+        else:
+            ptable_properties = None
         gridlayout = self.options.get('gridlayout')
         if gridlayout is not None:
             print("found gridlayout:\n%s" % gridlayout)
-            tabledata = parse_grid_table(gridlayout)
+            grid_tabledata = parse_grid_table(gridlayout)
             print("headrows=")
-            pp.pprint(tabledata[1])
+            pp.pprint(grid_tabledata[1])
             print("bodyrows=")
-            pp.pprint(tabledata[2])
-            gridtable_properties = extract_gridtable_properties(tabledata)
+            pp.pprint(grid_tabledata[2])
+            gridtable_properties = extract_gridtable_properties(grid_tabledata)
             tableline = self.lineno  # a guess
-            grid_table_rst = build_table(tabledata, tableline, widths="grid", stub_columns=1, classes="tblrender")
+            grid_table_rst = build_table(grid_tabledata, tableline, widths="grid", stub_columns=1, classes="tblrender")
         else:
             grid_table_rst = []
             gridtable_properties = None
-        rows_decoded = json.loads( "[" + rows + "]" )
-        row_title = rows_decoded[0]
-        row_labels = rows_decoded[1:]
-        cols_decoded = json.loads( "[" + cols + "]" )
-        col_title = cols_decoded[0]
-        col_labels = cols_decoded[1:]
+            grid_tabledata = None
+        if gridtable_properties is None and ptable_properties is None:
+            sys.exit("Must specify row and col properties or a gridtable or both")
+        make_ptable = ptable_properties is not None
+        if gridtable_properties is not None:
+            if ptable_properties is not None:
+                assert gridtable_properties["row_title"] == ptable_properties["row_title"]
+                assert gridtable_properties["row_labels"] == ptable_properties["row_labels"]
+                assert gridtable_properties["col_title"] == ptable_properties["col_title"]
+                assert gridtable_properties["col_labels"] == ptable_properties["col_labels"]
+                assert gridtable_properties["expanded_col_title"] == ptable_properties["expanded_col_title"], (
+                    "expanded_col_title in: gridtable='%s', ptable='%s'" % (
+                        gridtable_properties["expanded_col_title"], ptable_properties["expanded_col_title"]))        
+            table_properties = gridtable_properties
+        else:
+            table_properties = ptable_properties
+
         # target_node = make_target_node(self.env)
         tblrender_node = tblrender('')
         # todo: generate rst to specify label:
@@ -482,10 +513,13 @@ class TblrenderDirective(SphinxDirective):
         rst_nodes += grid_table_rst
 #        .. _table_loebner_fig2a:
 #    OR patch labels and targets at end.  How to make reference to table.
-        directive_info = {"docname": self.env.docname, "table_name":table_name, "row_labels":row_labels,
-             "row_title": row_title, "col_labels":col_labels, "col_title": col_title, # "target": target_node,
+        directive_info = {"docname": self.env.docname, "table_name":table_name,
+            "table_properties":table_properties,
              "desc_rst": desc_rst, "lineno": self.lineno,
-             "gridtable_properties": gridtable_properties}
+             "table_properties": table_properties,
+             "grid_tabledata": grid_tabledata,
+             "make_ptable": make_ptable
+             }
         # save directive_info as attribute of object so is easy to retrieve in replace_tbldata_and_tblrender_nodes
         tblrender_node.directive_info = directive_info
         save_directive_info(self.env, 'tblrender', directive_info)
@@ -919,15 +953,15 @@ def make_docutils_test_table():
     table = make_docutils_table(header, colwidths, data)
     return table
 
-def format_table_data(tds):
+def format_table_data(tds, app, fromdocname):
     # format data provided in tbldata directives into nodes that can be inserted into tables
     # (specified by the tblrender directives)
     # Returns dictionary ftd (formatted table data):
     # ftd[table_name][row][col] = <formatted data>
     ftd = {}
-    for table_name in tds["tabldata"]:
-        for row in tds["tabldata"][table_name]:
-            for col in tds["tabldata"][table_name][row]:
+    for table_name in tds["tbldata"]:
+        for row in tds["tbldata"][table_name]:
+            for col in tds["tbldata"][table_name][row]:
                 ddis = tds["tbldata"][table_name][row][col]
                 para = nodes.paragraph()
                 first_node = True
@@ -1031,6 +1065,7 @@ def replace_tbldata_and_tblrender_nodes(app, doctree, fromdocname):
     # print("starting replace_tbldata_and_tblrender_nodes, docname='%s'" % fromdocname)
     env = app.builder.env
     tds = make_tds(getattr(env, envinfokey))
+    ftd = format_table_data(tds, app, fromdocname)
     # print("tds['tbldata']=")
     # pp.pprint(tds['tbldata'])
     # import pdb; pdb.set_trace()

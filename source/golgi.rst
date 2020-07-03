@@ -7,13 +7,13 @@ Golgi Cell
 
 
 .. tbldata:: loebner_fig2a
-   :valrefs: ["From cell:golgi", "# cells", "4.2x10^5", "LoebnerEE-1989"],
-             ["From cell:golgi", "To cell:basket", "?, ?", "LoebnerEE-1989"],
-             ["From cell:golgi", "To cell:granule", "5.2x10^3, ?", "LoebnerEE-1989"],
-             ["From cell:golgi", "To cell:golgi", "-", "-"]
+   :valrefs: ["Source cell:golgi", "Cell count", "4.2x10^5", "LoebnerEE-1989"],
+             ["Source cell:golgi", "Target cell:basket", "?, ?", "LoebnerEE-1989"],
+             ["Source cell:golgi", "Target cell:granule", "5.2x10^3, ?", "LoebnerEE-1989"],
+             ["Source cell:golgi", "Target cell:golgi", "-", "-"]
 
-   From cell   | To cell    | Value       | Reference
-   golgi       | # cells    | 4.2x10^5    | LoebnerEE-1989
+   Source cell | Target cell| Value       | Reference
+   golgi       | Cell count | 4.2x10^5    | LoebnerEE-1989
    golgi       | basket     | ?, ?        | LoebnerEE-1989
    golgi       | granule    | 5.2x10^3, ? | LoebnerEE-1989
    golgi       | golgi      | -           | -
