@@ -921,8 +921,7 @@ def make_docutils_table(header, colwidths, data, hasLinks=False, col_title=None,
     tgroup += tbody
     for data_row in data:
         tbody += create_table_row(data_row, hasLinks)
-
-    return [table]
+    return table
 
 def create_table_row(row_cells, hasLinks):
     row = nodes.row()
@@ -1078,6 +1077,89 @@ def render_ptable(di, ftd):
     table = make_docutils_table(header_nodes, colwidths, tabledata, hasLinks=True, col_title=col_title)
     return table
 
+def render_gridtable(di, ftd):
+    # di - directive info (dictionary of info describing table)
+    grid_tabledata = di["grid_tabledata"]
+    print("grid_tabledata=")
+    pp.pprint(grid_tabledata)
+    table_name = di['table_name']
+    row_labels = di["row_labels"]
+    col_labels = di["col_labels"]
+    row_map = { i:row_labels[i] for i in range(len(row_labels))}
+    col_map = { i:col_labels[i] for i in range(len(col_labels))}
+    tableline = di["lineno"]  # not currently used, but was a parameter to original function below
+    grid_table_rst = render_gridtable_rst(grid_tabledata, tableline,
+        widths="grid", stub_columns=1, classes="tblrender", table_name=table_name, 
+        row_map=row_map, col_map=col_map, ftd=ftd)
+    return grid_table_rst
+
+# folling adapted from:
+# https://sourceforge.net/p/docutils/code/HEAD/tree/trunk/docutils/docutils/parsers/rst/states.py#l1786
+def render_gridtable_rst(tabledata, tableline, stub_columns=0, widths=None, classes=None,
+    table_name=None, row_map=None, col_map=None, ftd=None):
+    colwidths, headrows, bodyrows = tabledata
+    table = nodes.table()
+    if widths == 'auto':
+        table['classes'] += ['colwidths-auto']
+    elif widths: # "grid" or list of integers
+        table['classes'] += ['colwidths-given']
+    if classes is not None:
+        table['classes'] += classes.split()
+    tgroup = nodes.tgroup(cols=len(colwidths))
+    table += tgroup
+    for colwidth in colwidths:
+        colspec = nodes.colspec(colwidth=colwidth)
+        if stub_columns:
+            colspec.attributes['stub'] = 1
+            stub_columns -= 1
+        tgroup += colspec
+    if headrows:
+        thead = nodes.thead()
+        tgroup += thead
+        for row in headrows:
+            thead += build_table_row(row, tableline)
+    tbody = nodes.tbody()
+    tgroup += tbody
+    for row_num in range(len(bodyrows)):
+        rowdata = bodyrows[row_num]
+        tbody += build_gridtable_row(rowdata, tableline, table_name=table_name,
+            row_num=row_num, row_map=row_map, col_map=col_map, ftd=ftd)
+    return table
+
+def build_gridtable_row(rowdata, tableline, table_name=None, row_num=None, row_map=None, col_map=None, ftd=None):
+    row = nodes.row()
+    for cell_num in range(len(rowdata)):
+        cell = rowdata[cell_num]
+        if cell is None:
+            continue
+        morerows, morecols, offset, cellblock = cell
+        attributes = {}
+        if morerows:
+            attributes['morerows'] = morerows
+        if morecols:
+            attributes['morecols'] = morecols
+        entry = nodes.entry(**attributes)
+        row += entry
+        try:
+            if ''.join(cellblock):
+                # import pdb; pdb.set_trace()
+                entry += nodes.paragraph(text=" ".join(cellblock).strip())
+                # self.nested_parse(cellblock, input_offset=tableline+offset, node=entry)
+            elif (ftd is not None and table_name in ftd and row_map[row_num] in ftd[table_name] and
+                col_map[cell_num-1] in ftd[table_name][row_map[row_num]]):
+                # have data for this cell
+                entry += ftd[table_name][row_map[row_num]][col_map[cell_num-1]]
+        except KeyError as err:
+            print("Key error: {0}".format(err))
+            print("row_num=%s, row_map=%s" % (row_num, row_map))
+            print("cell_num=%s, col_map=%s" % (cell_num, col_map))
+            print("table_name=%s, ftd[table_name]=" % table_name)
+            pp.pprint(ftd[table_name])
+            sys.exit("aborting")
+    return row
+
+
+
 def replace_tbldata_and_tblrender_nodes(app, doctree, fromdocname):
     # Does the following:
     #
@@ -1149,8 +1231,10 @@ def replace_tbldata_and_tblrender_nodes(app, doctree, fromdocname):
             msg = "gridtable goes here"
             para3 += nodes.Text(msg, msg)
             node_lst.append(para3)
+            gridtable = render_gridtable(di, ftd)
+            node_lst.append(gridtable)
         print("in replace_tbldata_and_tblrender_nodes, about to replace_self")
-        import pdb; pdb.set_trace()
+        # import pdb; pdb.set_trace()
         node.replace_self(node_lst)
         print("in replace_tbldata_and_tblrender_nodes, just replaced self")
     return
