@@ -340,6 +340,8 @@ def extract_gridtable_properties(tabledata):
             else:
                 assert headrows[1][i] is not None, "both upper and lower header rows are None, should not happen"
                 head_col_types += "l"  # lower row only has content
+        # find index of first non-None in second header row
+        ct_offset = next((i for i, v in enumerate(headrows[1]) if v is not None), -1)
         assert head_col_types[0] == "u", "First column of table with two hearder rows must span both columns"
         bc_index = head_col_types.find("b")
         if bc_index == -1:
@@ -363,16 +365,62 @@ def extract_gridtable_properties(tabledata):
         print("row_labels='%s'" % row_labels)
         print("col_title='%s'" % col_title)
         print("col_labels='%s'" % col_labels)
+        print("ct_offset='%s'" % ct_offset)
         # print("row_map=%s" % row_map)
         # print("col_map=%s" % col_map)
         gridtable_properties = { # "tabledata": tabledata,
             "row_title": row_title, "row_labels": row_labels,
             "col_title": col_title, "col_labels": col_labels,
-            "expanded_col_title": expanded_col_title }
+            "expanded_col_title": expanded_col_title,
+            "ct_offset": ct_offset }
             # "row_map":row_map, "col_map":col_map
     else:
         sys.exit("Grid table with only one header row not implemented")
     return gridtable_properties
+
+
+def generate_gridtable_data(di):
+    # use directive info (di) to make grid tabledata structure (described in function extract_gridtable_properties)
+    # that can be used to build table vi call to render_gridtable
+    # This used if table specified by parameters (rows, cols, col_title, ct_offset) and not by
+    # an explicit gridtable structure.
+        # di - directive info (dictionary of info describing table)
+    table_name = di['table_name']
+    row_title = di["row_title"]
+    row_labels = di["row_labels"]
+    col_title = di["col_title"]
+    num_cols = len(col_titles) + 1  # plus 1 for row title
+    col_labels = di["col_labels"]
+    ct_offset = di["ct_offset"]
+    colwidths = [1] * num_cols  # generates list like: [1, 1, 1, ... ]
+    hrow1 = []
+    hrow2 = []
+    for i in range(ct_offset):
+        if i == 0:
+            hrow1.append([1,0,1,[row_title, ]])
+        else:
+            hrow1.append([1,0,1,[col_labels[i-1], ]])
+        hrow2.append(None)
+    # add row title
+    hrow1.append([0,num_cols-ct_offset-1,1,[col_title, ]])
+    hrow2.append([0,0,1, [col_labels[ct_offset,] ]])
+    # complete headers
+    for i in range(ct_offset, num_cols):
+        hrow1.append(None)
+        hrow2.append([0,0,1, [col_labels[i],]])
+    headrows = [hrow1, hrow2]
+    # build body rows
+    bodyrows = []
+    for row_num in range(len(row_labels)):
+        lineno = row_num * 2 + 3
+        bodyrow = []
+        bodyrow.append([0,0,lineno, [row_labels[i], ]])
+        for i in range(1, num_cols):
+            bodyrow.append( [0,0,lineno, ["", ]])
+        bodyrows.append(bodyrow)
+    tabledata = [colwidths, headrows, bodyrows] 
+    return tabledata
+
 
 
 # folling adapted from:
@@ -446,6 +494,7 @@ class TblrenderDirective(SphinxDirective):
         'rows': directives.unchanged,
         'cols': directives.unchanged,
         'expanded_col_title': directives.unchanged,
+        'ct_offset': directives.unchanged,
         'gridlayout': directives.unchanged,
     }
     def run(self):
@@ -464,8 +513,10 @@ class TblrenderDirective(SphinxDirective):
             col_title = cols_decoded[0]
             col_labels = cols_decoded[1:]
             expanded_col_title = expanded_col_title.strip("'"+ '"' + " ")
+            ct_offset = int(self.options.get('ct_offset', 1))  # number of columns to skip before adding col_title header
             ptable_properties = {"row_title":row_title, "row_labels":row_labels,
-                "col_title":col_title, "col_labels":col_labels, "expanded_col_title":expanded_col_title}
+                "col_title":col_title, "col_labels":col_labels, "expanded_col_title":expanded_col_title,
+                "ct_offset": ct_offset}
         else:
             ptable_properties = None
         gridlayout = self.options.get('gridlayout')
@@ -492,6 +543,7 @@ class TblrenderDirective(SphinxDirective):
                 assert gridtable_properties["row_labels"] == ptable_properties["row_labels"]
                 assert gridtable_properties["col_title"] == ptable_properties["col_title"]
                 assert gridtable_properties["col_labels"] == ptable_properties["col_labels"]
+                assert gridtable_properties["ct_offset"] == ptable_properties["ct_offset"]
                 assert gridtable_properties["expanded_col_title"] == ptable_properties["expanded_col_title"], (
                     "expanded_col_title in: gridtable='%s', ptable='%s'" % (
                         gridtable_properties["expanded_col_title"], ptable_properties["expanded_col_title"]))        
@@ -880,7 +932,9 @@ class TbldataDirective_old(SphinxDirective):
 #     env.tbldata_all_tbldata = [tbldata for tbldata in env.tbldata_all_tbldata
 #                           if tbldata['docname'] != docname]
 
-def make_docutils_table(header, colwidths, data, hasLinks=False, col_title=None, tableName=None, descriptionRst=None):
+def make_docutils_table(header, colwidths, data, hasLinks=False,
+    col_title=None, ct_offset=1, tableName=None, descriptionRst=None):
+    # col_title on top row above column labels, e.g. col_title = "Target cell", col_labels=["basket", "grannule", ...]
     # hasLinks set True if nodes made before call
     # from:
     # https://agateau.com/2015/docutils-snippets/
@@ -906,11 +960,12 @@ def make_docutils_table(header, colwidths, data, hasLinks=False, col_title=None,
     # include abscissaLabel header if present (spans columns 2-end, describes those columns.  eg. "To cell")
     if col_title is not None:
         row = nodes.row()
-        # first cell (entry) has no label
-        entry = nodes.entry()
-        row += entry
-        # second cell spans all the others and has text
-        entry = nodes.entry(morecols=(numcols - 2))
+        # first ct_offset cells (entry) have no label
+        for i in range(ct_offset):
+            entry = nodes.entry()
+            row += entry
+        # cell after ct_offset spans all the others and has text
+        entry = nodes.entry(morecols=(numcols - ct_offset - 1))
         row += entry
         entry += nodes.paragraph(text=col_title)
         thead += row
@@ -995,55 +1050,55 @@ def format_table_data(tds, app, fromdocname):
                 ftd[table_name][row][col] = para
     return ftd
 
-def generate_gridtable(table_name, tds, gridtable_properties, fromdocname):
-    # gridtable_properties = { "tabledata": tabledata,
-    # "row_title": row_title, "row_labels": row_labels,
-    # "col_title": col_title, "col_labels": col_labels,
-    # "row_map":row_map, "col_map":col_map}
-    if table_name not in tds["tbldata"]:
-        sys.exit("No data provided for gridtable %s" % table_name)
-    row_map = gridtable_properties['row_map']
-    col_map = gridtable_properties['col_map']
-    tabledata = gridtable_properties['tabledata']
-    colwidths, headrows, bodyrows = tabledata
-    gridtable_data = {}
-    for row in tds["tbldata"][table_name]:
-        assert row in row_map, "Row '%s' specified in data table not present in gridtable '%s'" % (row, table_name)
-        for col in tds["tbldata"][table_name][row]:
-            assert col in col_map, "Col '%s' specified in data table not present in gridtable '%s'" % (col, table_name)
-            ddis = tds["tbldata"][table_name][row][col]
-            para = nodes.paragraph()
-            first_node = True
-            for ddi in ddis:
-                target = ddi["target"]
-                valref = ddi["valref"]
-                vrow, vcol, vval, vref = valref
-                # check for "-" in both value and vref.  If found, just display '-' without a link to a target
-                # this is used to allow including dashes to indicate there can be no value for this table cell
-                if vval == '-' and vref == '-':
-                    newnode = nodes.Text('-', '-')
-                else:
-                    # create a reference
-                    newnode = nodes.reference('','')
-                    newnode['refdocname'] = ddi['docname']
-                    newnode['refuri'] = app.builder.get_relative_uri(
-                        fromdocname, ddi['docname'])
-                    newnode['refuri'] += '#' + ddi['target']['refid']
-                    # innernode = nodes.emphasis(vref, vref)
-                    innernode = nodes.emphasis(vval, vval)
-                    newnode.append(innernode)
-                # seperator = "; " if not first_node else ""
-                if not first_node:
-                    seperator = "; "
-                    para += nodes.Text(seperator, seperator)
-                first_node = False
-                # val_str = "%s%s " % (seperator, vval)
-                # para += nodes.Text(val_str, val_str)
-                para += newnode
-            # save para in gridtable_data
-            if row not in gridtable_data:
-                gridtable_data[row] = {}
-            gridtable_data[row][col] = para
+# def generate_gridtable(table_name, tds, gridtable_properties, fromdocname):
+#     # gridtable_properties = { "tabledata": tabledata,
+#     # "row_title": row_title, "row_labels": row_labels,
+#     # "col_title": col_title, "col_labels": col_labels,
+#     # "row_map":row_map, "col_map":col_map}
+#     if table_name not in tds["tbldata"]:
+#         sys.exit("No data provided for gridtable %s" % table_name)
+#     row_map = gridtable_properties['row_map']
+#     col_map = gridtable_properties['col_map']
+#     tabledata = gridtable_properties['tabledata']
+#     colwidths, headrows, bodyrows = tabledata
+#     gridtable_data = {}
+#     for row in tds["tbldata"][table_name]:
+#         assert row in row_map, "Row '%s' specified in data table not present in gridtable '%s'" % (row, table_name)
+#         for col in tds["tbldata"][table_name][row]:
+#             assert col in col_map, "Col '%s' specified in data table not present in gridtable '%s'" % (col, table_name)
+#             ddis = tds["tbldata"][table_name][row][col]
+#             para = nodes.paragraph()
+#             first_node = True
+#             for ddi in ddis:
+#                 target = ddi["target"]
+#                 valref = ddi["valref"]
+#                 vrow, vcol, vval, vref = valref
+#                 # check for "-" in both value and vref.  If found, just display '-' without a link to a target
+#                 # this is used to allow including dashes to indicate there can be no value for this table cell
+#                 if vval == '-' and vref == '-':
+#                     newnode = nodes.Text('-', '-')
+#                 else:
+#                     # create a reference
+#                     newnode = nodes.reference('','')
+#                     newnode['refdocname'] = ddi['docname']
+#                     newnode['refuri'] = app.builder.get_relative_uri(
+#                         fromdocname, ddi['docname'])
+#                     newnode['refuri'] += '#' + ddi['target']['refid']
+#                     # innernode = nodes.emphasis(vref, vref)
+#                     innernode = nodes.emphasis(vval, vval)
+#                     newnode.append(innernode)
+#                 # seperator = "; " if not first_node else ""
+#                 if not first_node:
+#                     seperator = "; "
+#                     para += nodes.Text(seperator, seperator)
+#                 first_node = False
+#                 # val_str = "%s%s " % (seperator, vval)
+#                 # para += nodes.Text(val_str, val_str)
+#                 para += newnode
+#             # save para in gridtable_data
+#             if row not in gridtable_data:
+#                 gridtable_data[row] = {}
+#             gridtable_data[row][col] = para
 
 
 def render_ptable(di, ftd):
@@ -1054,8 +1109,7 @@ def render_ptable(di, ftd):
     col_title = di["col_title"]
     col_labels = di["col_labels"]
     tabledata = []
-    for row_num in range(len(row_labels)):
-        row = row_labels[row_num]
+    for row in row_labels:
         # rowdata = [nodes.paragraph(text=row), ]
         rowdata = [nodes.strong(text=row), ]
         for col in col_labels:
@@ -1074,8 +1128,9 @@ def render_ptable(di, ftd):
     header = [row_title] + col_labels
     colwidths = [1] * len(header)  # generates list like: [1, 1, 1, ... ]
     header_nodes = [nodes.paragraph(text=cell) for cell in header]
-    table = make_docutils_table(header_nodes, colwidths, tabledata, hasLinks=True, col_title=col_title)
+    table = make_docutils_table(header_nodes, colwidths, tabledata, hasLinks=True, col_title=col_title, ct_offset=2)
     return table
+
 
 def render_gridtable(di, ftd):
     # di - directive info (dictionary of info describing table)
@@ -1089,7 +1144,7 @@ def render_gridtable(di, ftd):
     col_map = { i:col_labels[i] for i in range(len(col_labels))}
     tableline = di["lineno"]  # not currently used, but was a parameter to original function below
     grid_table_rst = render_gridtable_rst(grid_tabledata, tableline,
-        widths="grid", stub_columns=1, classes="tblrender", table_name=table_name, 
+        widths="grid", stub_columns=1, table_name=table_name, # classes="tblrender",
         row_map=row_map, col_map=col_map, ftd=ftd)
     return grid_table_rst
 
