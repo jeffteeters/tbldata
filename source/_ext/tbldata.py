@@ -379,7 +379,7 @@ def extract_gridtable_properties(tabledata):
     return gridtable_properties
 
 
-def generate_gridtable_data(di):
+def generate_grid_tabledata(di):
     # use directive info (di) to make grid tabledata structure (described in function extract_gridtable_properties)
     # that can be used to build table vi call to render_gridtable
     # This used if table specified by parameters (rows, cols, col_title, ct_offset) and not by
@@ -389,8 +389,8 @@ def generate_gridtable_data(di):
     row_title = di["row_title"]
     row_labels = di["row_labels"]
     col_title = di["col_title"]
-    num_cols = len(col_titles) + 1  # plus 1 for row title
     col_labels = di["col_labels"]
+    num_cols = len(col_labels) + 1  # plus 1 for row title
     ct_offset = di["ct_offset"]
     colwidths = [1] * num_cols  # generates list like: [1, 1, 1, ... ]
     hrow1 = []
@@ -403,9 +403,10 @@ def generate_gridtable_data(di):
         hrow2.append(None)
     # add row title
     hrow1.append([0,num_cols-ct_offset-1,1,[col_title, ]])
-    hrow2.append([0,0,1, [col_labels[ct_offset,] ]])
+    hrow2.append([0,0,1, [col_labels[ct_offset], ]])
+    # import pdb; pdb.set_trace()
     # complete headers
-    for i in range(ct_offset, num_cols):
+    for i in range(ct_offset, num_cols - 1):
         hrow1.append(None)
         hrow2.append([0,0,1, [col_labels[i],]])
     headrows = [hrow1, hrow2]
@@ -414,7 +415,7 @@ def generate_gridtable_data(di):
     for row_num in range(len(row_labels)):
         lineno = row_num * 2 + 3
         bodyrow = []
-        bodyrow.append([0,0,lineno, [row_labels[i], ]])
+        bodyrow.append([0,0,lineno, [row_labels[row_num], ]])
         for i in range(1, num_cols):
             bodyrow.append( [0,0,lineno, ["", ]])
         bodyrows.append(bodyrow)
@@ -425,7 +426,7 @@ def generate_gridtable_data(di):
 
 # folling adapted from:
 # https://sourceforge.net/p/docutils/code/HEAD/tree/trunk/docutils/docutils/parsers/rst/states.py#l1786
-def build_table(tabledata, tableline, stub_columns=0, widths=None, classes=None):
+def build_table_NOTUSED(tabledata, tableline, stub_columns=0, widths=None, classes=None):
     colwidths, headrows, bodyrows = tabledata
     table = nodes.table()
     if widths == 'auto':
@@ -453,7 +454,7 @@ def build_table(tabledata, tableline, stub_columns=0, widths=None, classes=None)
         tbody += build_table_row(row, tableline)
     return [table]
 
-def build_table_row(rowdata, tableline):
+def build_table_row_NOTUSED(rowdata, tableline):
     row = nodes.row()
     for cell in rowdata:
         if cell is None:
@@ -529,9 +530,9 @@ class TblrenderDirective(SphinxDirective):
             pp.pprint(grid_tabledata[2])
             gridtable_properties = extract_gridtable_properties(grid_tabledata)
             tableline = self.lineno  # a guess
-            grid_table_rst = build_table(grid_tabledata, tableline, widths="grid", stub_columns=1, classes="tblrender")
+            # grid_table_rst = build_table(grid_tabledata, tableline, widths="grid", stub_columns=1, classes="tblrender")
         else:
-            grid_table_rst = []
+            # grid_table_rst = []
             gridtable_properties = None
             grid_tabledata = None
         if gridtable_properties is None and ptable_properties is None:
@@ -560,7 +561,7 @@ class TblrenderDirective(SphinxDirective):
         # add description to rst for table
         desc_rst = render_rst(self, "\n" + description + "\n\n")
         # rst_nodes += desc_rst + grid_table_rst
-        rst_nodes += grid_table_rst
+        # rst_nodes += grid_table_rst
 #        .. _table_loebner_fig2a:
 #    OR patch labels and targets at end.  How to make reference to table.
         directive_info = {"docname": self.env.docname, "table_name":table_name,
@@ -932,7 +933,7 @@ class TbldataDirective_old(SphinxDirective):
 #     env.tbldata_all_tbldata = [tbldata for tbldata in env.tbldata_all_tbldata
 #                           if tbldata['docname'] != docname]
 
-def make_docutils_table(header, colwidths, data, hasLinks=False,
+def NOTUSED_make_docutils_table(header, colwidths, data, hasLinks=False,
     col_title=None, ct_offset=1, tableName=None, descriptionRst=None):
     # col_title on top row above column labels, e.g. col_title = "Target cell", col_labels=["basket", "grannule", ...]
     # hasLinks set True if nodes made before call
@@ -978,7 +979,7 @@ def make_docutils_table(header, colwidths, data, hasLinks=False,
         tbody += create_table_row(data_row, hasLinks)
     return table
 
-def create_table_row(row_cells, hasLinks):
+def NOTUSED_create_table_row(row_cells, hasLinks):
     row = nodes.row()
     for cell in row_cells:
         entry = nodes.entry()
@@ -993,7 +994,7 @@ def create_table_row(row_cells, hasLinks):
             entry += nodes.paragraph(text=cell)
     return row
 
-def make_docutils_test_table():
+def NOTUSED_make_docutils_test_table():
     header = ('Product', 'Unit Price', 'Quantity', 'Price')
     colwidths = (2, 1, 1, 1)
     data = [
@@ -1061,7 +1062,7 @@ def format_table_data(tds, app, fromdocname):
 #     col_map = gridtable_properties['col_map']
 #     tabledata = gridtable_properties['tabledata']
 #     colwidths, headrows, bodyrows = tabledata
-#     gridtable_data = {}
+#     grid_tabledata = {}
 #     for row in tds["tbldata"][table_name]:
 #         assert row in row_map, "Row '%s' specified in data table not present in gridtable '%s'" % (row, table_name)
 #         for col in tds["tbldata"][table_name][row]:
@@ -1095,13 +1096,13 @@ def format_table_data(tds, app, fromdocname):
 #                 # val_str = "%s%s " % (seperator, vval)
 #                 # para += nodes.Text(val_str, val_str)
 #                 para += newnode
-#             # save para in gridtable_data
-#             if row not in gridtable_data:
-#                 gridtable_data[row] = {}
-#             gridtable_data[row][col] = para
+#             # save para in grid_tabledata
+#             if row not in grid_tabledata:
+#                 grid_tabledata[row] = {}
+#             grid_tabledata[row][col] = para
 
 
-def render_ptable(di, ftd):
+def NOTUSED_render_ptable(di, ftd):
     # di - directive info (dictionary of info describing table)
     table_name = di['table_name']
     row_title = di["row_title"]
@@ -1132,9 +1133,10 @@ def render_ptable(di, ftd):
     return table
 
 
-def render_gridtable(di, ftd):
+def render_gridtable(di, grid_tabledata, ftd):
     # di - directive info (dictionary of info describing table)
-    grid_tabledata = di["grid_tabledata"]
+    # grid_tabledata - structure generated from parsing gridtable or generated from ptable proprties
+    # ftd - formatted? table data - values to store in rendered table
     print("grid_tabledata=")
     pp.pprint(grid_tabledata)
     table_name = di['table_name']
@@ -1172,7 +1174,7 @@ def render_gridtable_rst(tabledata, tableline, stub_columns=0, widths=None, clas
         thead = nodes.thead()
         tgroup += thead
         for row in headrows:
-            thead += build_table_row(row, tableline)
+            thead += build_gridtable_row(row, tableline)
     tbody = nodes.tbody()
     tgroup += tbody
     for row_num in range(len(bodyrows)):
@@ -1279,14 +1281,17 @@ def replace_tbldata_and_tblrender_nodes(app, doctree, fromdocname):
             msg = "ptable goes here"
             para2 += nodes.Text(msg, msg)
             node_lst.append(para2)
-            ptable = render_ptable(di, ftd)
+            # ptable = render_ptable(di, ftd)
+            grid_tabledata = generate_grid_tabledata(di)
+            ptable = render_gridtable(di, grid_tabledata, ftd)
             node_lst.append(ptable)
         if di["grid_tabledata"] is not None:
             para3 = nodes.paragraph()
             msg = "gridtable goes here"
             para3 += nodes.Text(msg, msg)
             node_lst.append(para3)
-            gridtable = render_gridtable(di, ftd)
+            grid_tabledata = di["grid_tabledata"]
+            gridtable = render_gridtable(di, grid_tabledata, ftd)
             node_lst.append(gridtable)
         print("in replace_tbldata_and_tblrender_nodes, about to replace_self")
         # import pdb; pdb.set_trace()
