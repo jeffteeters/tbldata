@@ -11,6 +11,7 @@ Golgi Cell
              ["Source cell:golgi", "Target cell:basket", "?, ?", "LoebnerEE-1989"],
              ["Source cell:golgi", "Target cell:granule", "5.2x10^3, ?", "LoebnerEE-1989"],
              ["Source cell:golgi", "Target cell:golgi", "-", "-"]
+   :id_prefix: G
 
    Source cell | Target cell| Value       | Reference
    golgi       | Cell count | 4.2x10^5    | LoebnerEE-1989
@@ -20,6 +21,15 @@ Golgi Cell
 
 
 Data about golgi cells are in this file.
+
+
+Here is a link to the :ref:`click here <grannule2a-reference-label>`.
+
+
+
+Text after the reference link.
+
+
 
 
 

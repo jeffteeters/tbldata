@@ -6,6 +6,7 @@ Some text about basket cells...
 
 .. tbldata::  num_cells     
    :valrefs: ["basket", "cat", 34, "MarrD-1969"], ["basket", "human", 87, "VanEssenDC-2002"]
+   :id_prefix: N
 
 
 And some text after basket cell text.

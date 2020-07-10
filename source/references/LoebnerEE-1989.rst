@@ -20,6 +20,7 @@ Notes about :cite:`LoebnerEE-1989` :footcite:`LoebnerEE-1989` .
              ["From cell:granule", "To cell:basket", "?, 3.7x10^3", "LoebnerEE-1989"],
              ["From cell:granule", "To cell:golgi", "?, 5.2x10^3", "LoebnerEE-1989"],
              ["From cell:granule", "To cell:purkinje", "200x10^3, 8.5x10^4", "LoebnerEE-1989"]
+   :id_prefix: Loe
 
 
 .. 

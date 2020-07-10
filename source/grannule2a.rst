@@ -13,6 +13,7 @@ Grannule2a Cell
              ["Source cell:granule", "Target cell:purkinje", "200x10^3, 8.5x10^4", "LoebnerEE-1989"],
              ["Source cell:granule", "Target cell:stellate", "?, 3.6x10^3", "LoebnerEE-1989"],
              ["Source cell:granule", "Target cell:granule", "-", "-"]
+   :id_prefix: R
 
    Source cell  | Target cell  | Value              | Reference
    granule      | Cell count   | 2.2x10^9           | LoebnerEE-1989
@@ -21,6 +22,39 @@ Grannule2a Cell
    granule      | purkinje     | 200x10^3, 8.5x10^4 | LoebnerEE-1989
    granule      | stellate     | ?, 3.6x10^3        | LoebnerEE-1989
    granule      | granule      | -                  | -
+
+
+
+
+
+.. _grannule2a-reference-label:
+
+This is the text of the grannule2a section.
+
+
+.. list-table:: List tables can have captions like this one.
+    :widths: 10 5 10 50
+    :header-rows: 1
+    :stub-columns: 1
+
+    * - List table
+      - Header 1
+      - Header 2
+      - Header 3 long. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nam sit amet mauris arcu.
+    * - Stub Row 1
+      - Row 1
+      - Column 2
+      - Column 3 long. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nam sit amet mauris arcu.
+    * - Stub Row 2
+      - Row 2
+      - Column 2
+      - Column 3 long. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nam sit amet mauris arcu.
+    * - Stub Row 3
+      - Row 3
+      - Column 2
+      - Column 3 long. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nam sit amet mauris arcu.
+
+
 
 
 

@@ -9,6 +9,7 @@ Some text about basket cells...
    :valrefs: ["Source cell:stellate", "Cell count", "2.1x10^7", "LoebnerEE-1989"],
              ["Source cell:stellate", "Target cell:purkinje", "3, 26", "LoebnerEE-1989"],
              ["Source cell:stellate", "Target cell:stellate", "-", "-"]
+   :id_prefix: S
 
    Source cell | Target cell | Value       | Reference
    stellate    | Cell count  | 2.1x10^7    | LoebnerEE-1989

@@ -8,6 +8,7 @@ Some text about Purkinje cells...
 .. tbldata:: loebner_fig2a
    :valrefs: ["Source cell:purkinje", "Cell count", "1.3x10^6", "LoebnerEE-1989"],
              ["Source cell:purkinje", "Target cell:purkinje", "-", "-"]
+   :id_prefix: P
 
    Source cell| Target cell | Value    | Reference
    purkinje   | Cell count  | 1.3x10^6 | LoebnerEE-1989

@@ -167,8 +167,8 @@ def make_tds(envinfo):
         # print("valrefs=%s" % valrefs)
         # valrefs_decoded = json.loads( "[" + valrefs + "]" )
         tri = tds["tblrender"][table_name][0]
-        for data_quad in valrefs:
-            tag1, tag2, value, reference = data_quad
+        for row_info in valrefs:
+            tag1, tag2, value, reference, target_id = row_info
             title1, label1 = get_tbldata_label(tag1, table_name, docname, lineno, tri)
             title2, label2 = get_tbldata_label(tag2, table_name, docname, lineno, tri)
             if title1 == title2:
@@ -203,7 +203,7 @@ def make_tds(envinfo):
                 tds["tbldata"][table_name][row] = {}
             if col not in tds["tbldata"][table_name][row]:
                 tds["tbldata"][table_name][row][col] = []
-            ref_info = {"docname": docname, "lineno": lineno, "target":target, "valref": data_quad}
+            ref_info = {"docname": docname, "lineno": lineno, "target":target, "valref": row_info}
             tds["tbldata"][table_name][row][col].append(ref_info)
             # tds["tbldata"][table_name][row][col].append(tde)
             # tds["tbldata"][table_name][row][col].append(ddi)
@@ -213,60 +213,60 @@ def make_tds(envinfo):
     # pp.pprint(tds)
     return tds
 
-def make_tds_old(envinfo):
-    # convert envinfo to nested structures that are used to make the tables and links
-    #
-    # Input (envinfo) contains:
-    #
-    # {'tbldata': [<ddi1>, <ddi2>, ...], 'tblrender': [ <rdi1>, <rdi2> ...]}
-    # <ddi> ("data directive info") == { "docname": self.env.docname, "lineno": self.lineno, "table_name":table_name,
-    #        "valrefs":valrefs, "target":target_node, "tbldata_node": tbldata_node.deepcopy() }
-    #
-    # <rdi> ("render directive info") == {"docname": self.env.docname, "table_name":table_name, "rows":rows, "cols":cols,
-    #         "target": target_node, "tblrender_node": tblrender_node.deepcopy()}
-    #
-    # Output (tds) - table data sorted, contains:
-    #
-    # { "tbldata":  # information from each tbldata directive, organized by table_name, row, col.
-    #               # used when building the table 
-    #     { <table_name>: { <row>: { <col>: [ <tde1>, <tde2> ... ], ... }, ... }, ... }
-    #       where each tde (table data entry) is: 
-    #          { "value": <value>, "reference": <reference>, "ddi": <entry in envinfo["tbldata"]> }, 
-    #
-    # { "tblrender":  # information from each tblrender directive, used for making link from tbldata directive node to table
-    #     { <table_name>: [ <rdi>, ...], ... }
-    #
-    tds = {"tbldata": {}, "tblrender": {} }
-    # convert envinfo["tbldata"] to tds["tbldata"]
-    # print("starting make tds, envinfo=")
-    # pp.pprint(envinfo)
-    for ddi in envinfo["tbldata"]:
-        table_name = ddi["table_name"]
-        valrefs = ddi["valrefs"]
-        # valrefs has format:
-        # <list of: <row, col, val, reference> in JSON format, without outer enclosing []>                                                             
-        # example:
-        # ["basket", "cat", 234, "Albus-1989"], ["basket", "rat", 298, "Jones-2002"]
-        # convert to JSON (add outer []) then decode to get values
-        print("valrefs=%s" % valrefs)
-        valrefs_decoded = json.loads( "[" + valrefs + "]" )
-        for data_quad in valrefs_decoded:
-            row, col, value, reference = data_quad
-            tde = {"value": value, "reference":reference, "ddi": ddi }
-            if table_name not in tds["tbldata"]:
-                tds["tbldata"][table_name] = {}
-            if row not in tds["tbldata"][table_name]:
-                tds["tbldata"][table_name][row] = {}
-            if col not in tds["tbldata"][table_name][row]:
-                tds["tbldata"][table_name][row][col] = []
-            tds["tbldata"][table_name][row][col].append(tde)
-    # convert envinfo["tblrender"] to tds["tblrender"]
-    for rdi in envinfo["tblrender"]:
-        table_name = rdi["table_name"]
-        if table_name not in tds["tblrender"]:
-            tds["tblrender"][table_name] = []
-        tds["tblrender"][table_name].append(rdi)
-    return tds
+# def make_tds_old(envinfo):
+#     # convert envinfo to nested structures that are used to make the tables and links
+#     #
+#     # Input (envinfo) contains:
+#     #
+#     # {'tbldata': [<ddi1>, <ddi2>, ...], 'tblrender': [ <rdi1>, <rdi2> ...]}
+#     # <ddi> ("data directive info") == { "docname": self.env.docname, "lineno": self.lineno, "table_name":table_name,
+#     #        "valrefs":valrefs, "target":target_node, "tbldata_node": tbldata_node.deepcopy() }
+#     #
+#     # <rdi> ("render directive info") == {"docname": self.env.docname, "table_name":table_name, "rows":rows, "cols":cols,
+#     #         "target": target_node, "tblrender_node": tblrender_node.deepcopy()}
+#     #
+#     # Output (tds) - table data sorted, contains:
+#     #
+#     # { "tbldata":  # information from each tbldata directive, organized by table_name, row, col.
+#     #               # used when building the table 
+#     #     { <table_name>: { <row>: { <col>: [ <tde1>, <tde2> ... ], ... }, ... }, ... }
+#     #       where each tde (table data entry) is: 
+#     #          { "value": <value>, "reference": <reference>, "ddi": <entry in envinfo["tbldata"]> }, 
+#     #
+#     # { "tblrender":  # information from each tblrender directive, used for making link from tbldata directive node to table
+#     #     { <table_name>: [ <rdi>, ...], ... }
+#     #
+#     tds = {"tbldata": {}, "tblrender": {} }
+#     # convert envinfo["tbldata"] to tds["tbldata"]
+#     # print("starting make tds, envinfo=")
+#     # pp.pprint(envinfo)
+#     for ddi in envinfo["tbldata"]:
+#         table_name = ddi["table_name"]
+#         valrefs = ddi["valrefs"]
+#         # valrefs has format:
+#         # <list of: <row, col, val, reference> in JSON format, without outer enclosing []>                                                             
+#         # example:
+#         # ["basket", "cat", 234, "Albus-1989"], ["basket", "rat", 298, "Jones-2002"]
+#         # convert to JSON (add outer []) then decode to get values
+#         print("valrefs=%s" % valrefs)
+#         valrefs_decoded = json.loads( "[" + valrefs + "]" )
+#         for data_quad in valrefs_decoded:
+#             row, col, value, reference = data_quad
+#             tde = {"value": value, "reference":reference, "ddi": ddi }
+#             if table_name not in tds["tbldata"]:
+#                 tds["tbldata"][table_name] = {}
+#             if row not in tds["tbldata"][table_name]:
+#                 tds["tbldata"][table_name][row] = {}
+#             if col not in tds["tbldata"][table_name][row]:
+#                 tds["tbldata"][table_name][row][col] = []
+#             tds["tbldata"][table_name][row][col].append(tde)
+#     # convert envinfo["tblrender"] to tds["tblrender"]
+#     for rdi in envinfo["tblrender"]:
+#         table_name = rdi["table_name"]
+#         if table_name not in tds["tblrender"]:
+#             tds["tblrender"][table_name] = []
+#         tds["tblrender"][table_name].append(rdi)
+#     return tds
 
 
 def purge_directive_info(app, env, docname):
@@ -283,8 +283,8 @@ def purge_directive_info(app, env, docname):
     setattr(env, envinfokey, value)
 
 
-def make_target_node(env):
-    target_id = 'tbldata-%d' % env.new_serialno("tbldata")
+def make_target_node(env, prefix='tbldata'):
+    target_id = "%s%d" % (prefix, env.new_serialno(prefix))
     target_node = nodes.target('','',ids=[target_id])
     return target_node
 
@@ -720,7 +720,8 @@ class TbldataDirective(SphinxDirective):
     #    :valrefs: ["basket", "cat", 234, "Albus-1989"], ["basket", "rat", 298, "Jones-2002"]
     required_arguments = 1
     option_spec = {
-        'valrefs': directives.unchanged_required
+        'valrefs': directives.unchanged,
+        'id_prefix': directives.unchanged_required
     }
     # this enables content in the directive
     # include content as comment?
@@ -736,6 +737,12 @@ class TbldataDirective(SphinxDirective):
             msg = nodes.Text(msg, msg)
             tbldata_node += msg
             return [ target_node, tbldata_node ]
+        id_prefix = self.options.get('id_prefix')
+        if id_prefix is None:
+            print("Found id_prefix None")
+            import pdb; pdb.set_trace()
+        else:
+            id_prefix = id_prefix.strip('"' + "'" + " ")
         # print("content=%s" % content)
         input_rows = content  # .splitlines() # is already split
         header = [x.strip() for x in input_rows[0].split("|")]
@@ -749,16 +756,19 @@ class TbldataDirective(SphinxDirective):
         valrefs_decoded = []
         table_rst = """
 .. list-table:: List tables can have captions like this one.
-   :widths: 10 10 10 10
+   :widths: 5 10 10 10 10
    :header-rows: 1
    :stub-columns: 0
 
-   * - %s
+   * - Id
+     - %s
      - %s
      - Value
      - Reference
 """ % (header[0], header[1])
-        for input_row in input_rows[1:]:
+        for row_num in range(1, len(input_rows)):
+            input_row = input_rows[row_num]
+            # for input_row in input_rows[1:]:
             elements = [x.strip() for x in input_row.split("|")]
             assert len(elements) == 4
             assert ":" not in elements[0]
@@ -767,15 +777,19 @@ class TbldataDirective(SphinxDirective):
             assert len(elements[1]) > 0
             assert len(elements[2]) > 0
             assert len(elements[3]) > 0
-            valrefs = [ header[0] + ":" + elements[0], header[1] + ":" + elements[1], elements[2], elements[3]]
+            # target_id = "%s%s" % (id_prefix, env.new_serialno(id_prefix))
+            target_id = "%s%s" % (id_prefix, row_num)
+            # target_id_node = nodes.target('','',ids=[target_id])
+            valrefs = [ header[0] + ":" + elements[0], header[1] + ":" + elements[1], elements[2], elements[3],
+                target_id]
             valrefs_decoded.append(valrefs)
             if elements[2] == "-" and elements[3] == "-":
                 # no value or reference
                 rst_ref = "-"
             else:
                 rst_ref = ":cite:`%s` :footcite:`%s`" % (elements[3], elements[3])
-            table_rst += "   * - %s\n     - %s\n     - %s\n     - %s\n" % (
-                elements[0], elements[1], elements[2], rst_ref)
+            table_rst += "   * - %s\n     - %s\n     - %s\n     - %s\n     - %s\n" % (
+                target_id, elements[0], elements[1], elements[2], rst_ref)
         # print("content=%s" % content)
         # valrefs_decoded = json.loads( "[" + valrefs + "]" )
         # target_node = make_target_node(self.env)
@@ -789,11 +803,22 @@ class TbldataDirective(SphinxDirective):
         title = "Data for table :ref:`%s <table_%s>`" % (table_name, table_name)
         rst = []
         rst.append(".. cssclass:: tbldata-title")
-        rst.append("")         
+        rst.append("")
+        # following two lines for testing what labels look like
+        # rst.append(".. _%s:" % id_prefix)
+        # rst.append("") 
         rst.append(title)
         rst.append("")
         rst = "\n".join(rst) + table_rst
         rst_nodes = render_rst(self, rst)
+        # try inserting target node in front of rst
+        # rst_nodes.insert(0, valrefs_decoded[0][5])
+        # if False and len(rst_nodes) > 3:
+        #     tbn = rst_nodes[3]
+        #     # try inserting label in table row
+        #     # import pdb; pdb.set_trace()
+        #     # tbn.children[1].children[6].children[0].children[0].children.append(valrefs_decoded[0][5])
+        #     tbn.children[1].children[6].children[0].children[0].children.insert(0, valrefs_decoded[0][5])
         # tbldata_node += rst_nodes
         # rst_nodes = render_rst(self, rst)
         # tbldata_node = tbldata('')
@@ -1019,22 +1044,38 @@ def format_table_data(tds, app, fromdocname):
                 first_node = True
                 for ddi in ddis:
                     target = ddi["target"]
-                    valref = ddi["valref"]
-                    vrow, vcol, vval, vref = valref
+                    row_info = ddi["valref"]
+                    vrow, vcol, vval, vref, target_id = row_info
                     # check for "-" in both value and vref.  If found, just display '-' without a link to a target
                     # this is used to allow including dashes to indicate there can be no value for this table cell
                     if vval == '-' and vref == '-':
                         newnode = nodes.Text('-', '-')
                     else:
-                        # create a reference
-                        newnode = nodes.reference('','')
-                        newnode['refdocname'] = ddi['docname']
-                        newnode['refuri'] = app.builder.get_relative_uri(
-                            fromdocname, ddi['docname'])
-                        newnode['refuri'] += '#' + ddi['target']['refid']
-                        # innernode = nodes.emphasis(vref, vref)
-                        innernode = nodes.emphasis(vval, vval)
-                        newnode.append(innernode)
+                        # create a reference to new Id in a row
+                        use_id_links = True
+                        if use_id_links:
+                            idref = nodes.reference('','')
+                            idref['refdocname'] = ddi['docname']
+                            idref['refuri'] = app.builder.get_relative_uri(
+                                fromdocname, ddi['docname'])         
+                            idref['refuri'] += '#' + target['refid']
+                            reftext = " [" + target_id + "]"
+                            idref_id = nodes.emphasis(reftext, reftext)
+                            idref.append(idref_id)
+                            valtxt = nodes.Text(vval, vval)
+                            newnode = [valtxt, idref]  # hope += will work with lists
+                        else:
+                            # original code, no id-links
+                            # create a reference
+                            newnode = nodes.reference('','')
+                            newnode['refdocname'] = ddi['docname']
+                            newnode['refuri'] = app.builder.get_relative_uri(
+                                fromdocname, ddi['docname'])
+                            # below line, version for linking to table
+                            newnode['refuri'] += '#' + ddi['target']['refid']
+                            # innernode = nodes.emphasis(vref, vref)
+                            innernode = nodes.emphasis(vval, vval)
+                            newnode.append(innernode)
                     # seperator = "; " if not first_node else ""
                     if not first_node:
                         seperator = "; "
