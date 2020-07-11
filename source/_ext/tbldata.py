@@ -403,7 +403,7 @@ def generate_grid_tabledata(di):
         hrow2.append(None)
     # add row title
     hrow1.append([0,num_cols-ct_offset-1,1,[col_title, ]])
-    hrow2.append([0,0,1, [col_labels[ct_offset], ]])
+    hrow2.append([0,0,1, [col_labels[ct_offset-1], ]])
     # import pdb; pdb.set_trace()
     # complete headers
     for i in range(ct_offset, num_cols - 1):
@@ -785,11 +785,13 @@ class TbldataDirective(SphinxDirective):
             valrefs_decoded.append(valrefs)
             if elements[2] == "-" and elements[3] == "-":
                 # no value or reference
-                rst_ref = "-"
+                rst_ref = "`-`"
+                show_val = "`-`"
             else:
                 rst_ref = ":cite:`%s` :footcite:`%s`" % (elements[3], elements[3])
+                show_val = elements[2]
             table_rst += "   * - %s\n     - %s\n     - %s\n     - %s\n     - %s\n" % (
-                target_id, elements[0], elements[1], elements[2], rst_ref)
+                target_id, elements[0], elements[1], show_val, rst_ref)
         # print("content=%s" % content)
         # valrefs_decoded = json.loads( "[" + valrefs + "]" )
         # target_node = make_target_node(self.env)
@@ -1060,7 +1062,9 @@ def format_table_data(tds, app, fromdocname):
                                 fromdocname, ddi['docname'])         
                             idref['refuri'] += '#' + target['refid']
                             reftext = " [" + target_id + "]"
-                            idref_id = nodes.emphasis(reftext, reftext)
+                            idref_id = nodes.Text(reftext, reftext)
+                            # import pdb; pdb.set_trace()
+                            # idref_id["classes"] += [ "tblrender",]
                             idref.append(idref_id)
                             valtxt = nodes.Text(vval, vval)
                             newnode = [valtxt, idref]  # hope += will work with lists
