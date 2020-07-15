@@ -12,7 +12,6 @@ Some text about Purkinje cells...
 
    Source cell| Target cell | Value    | Reference
    purkinje   | Cell count  | 1.3x10^6 | LoebnerEE-1989
-   purkinje   | purkinje    | -        | -
 
 
 And some text after basket cell text.

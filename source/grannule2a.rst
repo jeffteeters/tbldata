@@ -21,7 +21,6 @@ Grannule2a Cell
    granule      | golgi        | ?, 5.2x10^3        | LoebnerEE-1989
    granule      | purkinje     | 200x10^3, 8.5x10^4 | LoebnerEE-1989
    granule      | stellate     | ?, 3.6x10^3        | LoebnerEE-1989
-   granule      | granule      | -                  | -
 
 
 

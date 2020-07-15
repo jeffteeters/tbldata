@@ -721,7 +721,8 @@ class TbldataDirective(SphinxDirective):
     required_arguments = 1
     option_spec = {
         'valrefs': directives.unchanged,
-        'id_prefix': directives.unchanged_required
+        'id_prefix': directives.unchanged_required,
+        'comment': directives.unchanged,
     }
     # this enables content in the directive
     # include content as comment?
@@ -754,8 +755,9 @@ class TbldataDirective(SphinxDirective):
         assert header[2] == "Value"
         assert header[3] == "Reference"
         valrefs_decoded = []
+        # caption can go after list-table::  List tables can have captions like this one.
         table_rst = """
-.. list-table:: List tables can have captions like this one.
+.. list-table::
    :widths: 5 10 10 10 10
    :header-rows: 1
    :stub-columns: 0
@@ -788,7 +790,12 @@ class TbldataDirective(SphinxDirective):
                 rst_ref = "`-`"
                 show_val = "`-`"
             else:
-                rst_ref = ":cite:`%s` :footcite:`%s`" % (elements[3], elements[3])
+                # in case multiple references, include them all
+                rst_ref = []
+                for ref in elements[3].split(",; "):
+                    rst_ref.append(":cite:`%s` :footcite:`%s`" % (ref, ref))
+                rst_ref = "; ".join(rst_ref)
+                # rst_ref = ":cite:`%s` :footcite:`%s`" % (elements[3], elements[3])
                 show_val = elements[2]
             table_rst += "   * - %s\n     - %s\n     - %s\n     - %s\n     - %s\n" % (
                 target_id, elements[0], elements[1], show_val, rst_ref)
@@ -811,8 +818,10 @@ class TbldataDirective(SphinxDirective):
         # rst.append("") 
         rst.append(title)
         rst.append("")
-        rst = "\n".join(rst) + table_rst
-        rst_nodes = render_rst(self, rst)
+        title_nodes = render_rst(self, "\n".join(rst))
+        table_nodes = render_rst(self, table_rst)
+        # rst = "\n".join(rst) + table_rst
+        # rst_nodes = render_rst(self, rst)
         # try inserting target node in front of rst
         # rst_nodes.insert(0, valrefs_decoded[0][5])
         # if False and len(rst_nodes) > 3:
@@ -832,8 +841,13 @@ class TbldataDirective(SphinxDirective):
         # pp.pprint(dir(tbldata_node))
         save_directive_info(self.env, 'tbldata', directive_info)
         print("saved directive_info to tbldata_node id = %s" % id(tbldata_node))
-        output_nodes = [target_node, tbldata_node, ] + rst_nodes
+        # output_nodes = [target_node, tbldata_node, ] + rst_nodes
+        # output_nodes = [target_node, ] + rst_nodes + [tbldata_node, ]
+        output_nodes = [target_node, ] + title_nodes + [ tbldata_node, ] + table_nodes
         return output_nodes
+
+
+
         # old code
         tbldata_node += target_node
         tbldata_node += rst_nodes
@@ -857,7 +871,8 @@ class TbldataDirective_old(SphinxDirective):
     #    :valrefs: ["basket", "cat", 234, "Albus-1989"], ["basket", "rat", 298, "Jones-2002"]
     required_arguments = 1
     option_spec = {
-        'valrefs': directives.unchanged_required
+        'valrefs': directives.unchanged_required,
+        'comment': directives.unchanged,
     }
     # this enables content in the directive
     # include content as comment?
@@ -1036,7 +1051,7 @@ def format_table_data(tds, app, fromdocname):
     # format data provided in tbldata directives into nodes that can be inserted into tables
     # (specified by the tblrender directives)
     # Returns dictionary ftd (formatted table data):
-    # ftd[table_name][row][col] = <formatted data>
+    # ftd[table_name][row][col] = [<formatted data>, <plain_text_value>, <from_document_name>, <id_number> ] 
     ftd = {}
     for table_name in tds["tbldata"]:
         for row in tds["tbldata"][table_name]:
@@ -1048,6 +1063,7 @@ def format_table_data(tds, app, fromdocname):
                     target = ddi["target"]
                     row_info = ddi["valref"]
                     vrow, vcol, vval, vref, target_id = row_info
+                    docname = ddi["docname"]
                     # check for "-" in both value and vref.  If found, just display '-' without a link to a target
                     # this is used to allow including dashes to indicate there can be no value for this table cell
                     if vval == '-' and vref == '-':
@@ -1093,7 +1109,9 @@ def format_table_data(tds, app, fromdocname):
                     ftd[table_name] = {}
                 if row not in ftd[table_name]:
                     ftd[table_name][row] = {}
-                ftd[table_name][row][col] = para
+                # following only stores most recent values
+                entry_data = [para, vval, docname, target_id]
+                ftd[table_name][row][col] = entry_data
     return ftd
 
 # def generate_gridtable(table_name, tds, gridtable_properties, fromdocname):
@@ -1182,8 +1200,10 @@ def render_gridtable(di, grid_tabledata, ftd):
     # di - directive info (dictionary of info describing table)
     # grid_tabledata - structure generated from parsing gridtable or generated from ptable proprties
     # ftd - formatted? table data - values to store in rendered table
-    print("grid_tabledata=")
-    pp.pprint(grid_tabledata)
+    # print("entered render_gridtable; grid_tabledata=")
+    # pp.pprint(grid_tabledata)
+    # print("ftd=")
+    # pp.pprint(ftd)
     table_name = di['table_name']
     row_labels = di["row_labels"]
     col_labels = di["col_labels"]
@@ -1242,22 +1262,41 @@ def build_gridtable_row(rowdata, tableline, table_name=None, row_num=None, row_m
             attributes['morecols'] = morecols
         entry = nodes.entry(**attributes)
         row += entry
-        try:
-            if ''.join(cellblock):
-                # import pdb; pdb.set_trace()
-                entry += nodes.paragraph(text=" ".join(cellblock).strip())
-                # self.nested_parse(cellblock, input_offset=tableline+offset, node=entry)
-            elif (ftd is not None and table_name in ftd and row_map[row_num] in ftd[table_name] and
-                col_map[cell_num-1] in ftd[table_name][row_map[row_num]]):
-                # have data for this cell
-                entry += ftd[table_name][row_map[row_num]][col_map[cell_num-1]]
-        except KeyError as err:
-            print("Key error: {0}".format(err))
-            print("row_num=%s, row_map=%s" % (row_num, row_map))
-            print("cell_num=%s, col_map=%s" % (cell_num, col_map))
-            print("table_name=%s, ftd[table_name]=" % table_name)
-            pp.pprint(ftd[table_name])
-            sys.exit("aborting")
+        table_val = " ".join(cellblock).strip()
+        if (ftd is not None and table_name in ftd and row_map[row_num] in ftd[table_name] and
+            cell_num > 0 and col_map[cell_num-1] in ftd[table_name][row_map[row_num]]):
+            # have data for this cell
+            ftd_entry = ftd[table_name][row_map[row_num]][col_map[cell_num-1]]
+        else:
+            ftd_entry = None
+        if table_val:
+            if ftd_entry is not None:
+                para, vval, docname, target_id = ftd_entry
+                sys.exit("Table %s, value specified in gridtable (%s) and in tbldata (%s) "
+                    "from file '%s', id '%s' for row '%s'"
+                    " col '%s'.  Should only be specified one location" % ( table_name, table_val,
+                    vval, docname, target_id, row_map[row_num], col_map[cell_num-1]))
+            entry += nodes.paragraph(text=table_val)
+        elif ftd_entry is not None:
+            # entry += ftd[table_name][row_map[row_num]][col_map[cell_num-1]][0]
+            entry += ftd_entry[0]
+
+        # try:
+        #     if ''.join(cellblock):
+        #         # import pdb; pdb.set_trace()
+        #         entry += nodes.paragraph(text=" ".join(cellblock).strip())
+        #         # self.nested_parse(cellblock, input_offset=tableline+offset, node=entry)
+        #     elif (ftd is not None and table_name in ftd and row_map[row_num] in ftd[table_name] and
+        #         col_map[cell_num-1] in ftd[table_name][row_map[row_num]]):
+        #         # have data for this cell
+        #         entry += ftd[table_name][row_map[row_num]][col_map[cell_num-1]]
+        # except KeyError as err:
+        #     print("Key error: {0}".format(err))
+        #     print("row_num=%s, row_map=%s" % (row_num, row_map))
+        #     print("cell_num=%s, col_map=%s" % (cell_num, col_map))
+        #     print("table_name=%s, ftd[table_name]=" % table_name)
+        #     pp.pprint(ftd[table_name])
+        #     sys.exit("aborting")
     return row
 
 
@@ -1314,13 +1353,14 @@ def replace_tbldata_and_tblrender_nodes(app, doctree, fromdocname):
         #      "grid_tabledata": grid_tabledata,
         #      "make_ptable": make_ptable
         # }
-        print("made it to body of replace_tbldata_and_tblrender_nodes")
+        print("made it to body of replace_tbldata_and_tblrender_nodes, docname=%s" % di["docname"])
         # sect = nodes.section()
         node_lst = []  # node list
-        para1 = nodes.paragraph()
-        msg = "tblrender tables go here"
-        para1 += nodes.Text(msg, msg)
-        node_lst.append(para1)
+        # para1 = nodes.paragraph()
+        # msg = "tblrender tables go here"
+        # para1 += nodes.Text(msg, msg)
+        # node_lst.append(para1)
+        node_lst += di["desc_rst"]
         if di["make_ptable"]:
             para2 = nodes.paragraph()
             msg = "ptable goes here"
@@ -1339,10 +1379,29 @@ def replace_tbldata_and_tblrender_nodes(app, doctree, fromdocname):
             gridtable = render_gridtable(di, grid_tabledata, ftd)
             node_lst.append(gridtable)
         print("in replace_tbldata_and_tblrender_nodes, about to replace_self")
+        node.set_class("tbldata-title")
+        node += node_lst
         # import pdb; pdb.set_trace()
         node.replace_self(node_lst)
         print("in replace_tbldata_and_tblrender_nodes, just replaced self")
+    # return
+
+    # insert description into tbldata tables
+    for node in doctree.traverse(tbldata):
+        if hasattr(node, 'directive_info'):
+            di = node.directive_info
+            table_name = di['table_name']
+            desc_rst = tds['tblrender'][table_name][0]['desc_rst']
+
+            # import pdb; pdb.set_trace()
+            print("replacing tbldata node in docname '%s' with:" % di["docname"])
+            pp.pprint(desc_rst)
+            # insert desc_rsts before tables
+            # node.children[2:2] = desc_rst
+            # node += desc_rest # crashes with:  NotImplementedError: Unknown node: tblrender
+            node.replace_self(desc_rst)
     return
+
 
         # scratch code below
     for i in range(10):

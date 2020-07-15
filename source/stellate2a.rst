@@ -14,7 +14,6 @@ Some text about basket cells...
    Source cell | Target cell | Value       | Reference
    stellate    | Cell count  | 2.1x10^7    | LoebnerEE-1989
    stellate    | purkinje    | 3, 26       | LoebnerEE-1989
-   stellate    | stellate    | -           | -
 
 
 And some text after basket cell text.

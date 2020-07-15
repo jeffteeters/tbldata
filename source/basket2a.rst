@@ -11,10 +11,9 @@ Some text about basket cells...
              ["Source cell:basket", "Target cell:basket", "-", "-"]
    :id_prefix: B
 
-   Source cell | Target cell| Value       | Reference
+   Source cell | Target cell   | Value       | Reference
    basket      | Cell count    | 7.5x10^6    | LoebnerEE-1989
-   basket      | purkinje   | 9, 7.5x10^6 | LoebnerEE-1989
-   basket      | basket     | -           | -
+   basket      | purkinje      | 9, 7.5x10^6 | LoebnerEE-1989
 
 
 And some text after basket cell text.
