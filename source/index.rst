@@ -26,9 +26,11 @@ Welcome to pc_data_table's documentation!
 Hello world.  Below is a data table.
 
 
-..
-   comment
-   _table_num_cells:
+.. _num_cells:
+
+Number of cells in different species
+------------------------------------
+
 
 .. tblrender:: num_cells
    :rows: "Cell type", "basket", "grannule", "stellate"

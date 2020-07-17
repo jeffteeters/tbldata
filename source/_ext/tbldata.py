@@ -101,7 +101,7 @@ def make_tds(envinfo):
                         "tblrender defined in file %s line %s" % (table_name, fdocname, flineno, tag, label,
                         title, tri["docname"], tri["lineno"]))
                     sys.exit("Aborting")
-            elif title == tri['col_title']:
+            elif title == tri['col_title'] or title == tri['expanded_col_title']:
                if label not in tri['col_labels']:
                     print("ERROR: tbldata for table '%s' in %s line %s references '%s', but '%s' is not a "
                         "valid option for '%s' in "
@@ -110,9 +110,9 @@ def make_tds(envinfo):
                     sys.exit("Aborting")
             else:
                 print("ERROR: tbldata for table '%s' in %s line %s references title '%s' which is not a "
-                    "valid title; should be either '%s' or '%s' for"
-                    "tblrender defined in file %s line %s" % (table_name, fdocname, flineno, title, tri['row_title'],
-                    tri['col_title'], tri["docname"], tri["lineno"]))
+                    "valid title; should be either:\n'%s' OR '%s' OR '%s'for\n"
+                    "tblrender defined in file %s line %s" % (table_name, fdocname, flineno, title, tri["row_title"],
+                    tri["col_title"], tri["expanded_col_title"], tri["docname"], tri["lineno"]))
                 sys.exit("Aborting")
         else:
             label = tag
@@ -177,12 +177,12 @@ def make_tds(envinfo):
                 print("%s, %s, %s, %s" % (tag1, tag2, value, reference))
                 sys.exit("Aborting")
             if title1 == tri["row_title"]:
-                assert title2 == tri["col_title"]
+                assert title2 in (tri["col_title"], tri['expanded_col_title'])
                 row = label1
                 col = label2
             else:
                 assert title2 == tri["row_title"]
-                assert title1 == tri["col_title"]
+                assert title1 in (tri["col_title"], tri['expanded_col_title'])
                 row = label2
                 col = label1             
             # row, col, value, reference = data_quad
@@ -555,9 +555,9 @@ class TblrenderDirective(SphinxDirective):
         # target_node = make_target_node(self.env)
         tblrender_node = tblrender('')
         # todo: generate rst to specify label:
-        label = ".. _table_%s:" % table_name
-        rst = "\n" + label + "\n"
-        rst_nodes = render_rst(self, rst)
+        # label = ".. _table_%s:" % table_name
+        # rst = "\n" + label + "\n"
+        # rst_nodes = render_rst(self, rst)
         # add description to rst for table
         desc_rst = render_rst(self, "\n" + description + "\n\n")
         # rst_nodes += desc_rst + grid_table_rst
@@ -576,7 +576,8 @@ class TblrenderDirective(SphinxDirective):
         # return target_node for later reference from tbldata directive
         # return tblrender_node to be replaced later by content of table
         # return [target_node, tblrender_node]
-        nodes = rst_nodes + [tblrender_node]
+        # nodes = rst_nodes + [tblrender_node]
+        nodes = desc_rst + [tblrender_node]
         # import pdb; pdb.set_trace()
         return nodes
 
@@ -792,10 +793,12 @@ class TbldataDirective(SphinxDirective):
             else:
                 # in case multiple references, include them all
                 rst_ref = []
-                for ref in elements[3].split(",; "):
+                for ref in re.split('[ ,;]+', elements[3]):
                     rst_ref.append(":cite:`%s` :footcite:`%s`" % (ref, ref))
                 rst_ref = "; ".join(rst_ref)
                 # rst_ref = ":cite:`%s` :footcite:`%s`" % (elements[3], elements[3])
+                if 'Albus' in rst_ref:
+                    print("multiple reference rst_ref='%s'" % rst_ref)
                 show_val = elements[2]
             table_rst += "   * - %s\n     - %s\n     - %s\n     - %s\n     - %s\n" % (
                 target_id, elements[0], elements[1], show_val, rst_ref)
@@ -809,7 +812,8 @@ class TbldataDirective(SphinxDirective):
         # generate info to display at directive location using rst so can include citation that uses sphinxbibtex extension, e.g. ":cite:
         # rst = "Data for *%s*\n\n%s\n\nSee :cite:`Albus-1989` for details." % (table_name, valrefs)
         # tbldata_node = tbldata()
-        title = "Data for table :ref:`%s <table_%s>`" % (table_name, table_name)
+        # title = "Data for table :ref:`%s <table_%s>`" % (table_name, table_name)
+        title = "Data for table :ref:`%s`" % table_name
         rst = []
         rst.append(".. cssclass:: tbldata-title")
         rst.append("")
@@ -1360,10 +1364,10 @@ def replace_tbldata_and_tblrender_nodes(app, doctree, fromdocname):
         # msg = "tblrender tables go here"
         # para1 += nodes.Text(msg, msg)
         # node_lst.append(para1)
-        node_lst += di["desc_rst"]
+        # node_lst += di["desc_rst"]
         if di["make_ptable"]:
             para2 = nodes.paragraph()
-            msg = "ptable goes here"
+            msg = "ptable follows"
             para2 += nodes.Text(msg, msg)
             node_lst.append(para2)
             # ptable = render_ptable(di, ftd)
@@ -1372,14 +1376,14 @@ def replace_tbldata_and_tblrender_nodes(app, doctree, fromdocname):
             node_lst.append(ptable)
         if di["grid_tabledata"] is not None:
             para3 = nodes.paragraph()
-            msg = "gridtable goes here"
+            msg = "gridtable follows"
             para3 += nodes.Text(msg, msg)
             node_lst.append(para3)
             grid_tabledata = di["grid_tabledata"]
             gridtable = render_gridtable(di, grid_tabledata, ftd)
             node_lst.append(gridtable)
         print("in replace_tbldata_and_tblrender_nodes, about to replace_self")
-        node.set_class("tbldata-title")
+        # node.set_class("tbldata-title")
         node += node_lst
         # import pdb; pdb.set_trace()
         node.replace_self(node_lst)

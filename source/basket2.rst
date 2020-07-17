@@ -16,7 +16,7 @@ And some text after basket cell text.
 .. _Loebner_from_RaughMR-ed-1989:
 
 
-Data for table :ref:`num_cells <table_num_cells>`
+Data for table :ref:`num_cells`
 
    row: cat, col: basket, value: 89 :cite:`MarrD-1969` :footcite:`MarrD-1969`
 

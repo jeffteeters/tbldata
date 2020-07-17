@@ -5,7 +5,7 @@ Some text about basket cells...
 
 
 
-.. tbldata:: loebner_fig2a
+.. tbldata:: table_loebner_fig2a
    :valrefs: ["Source cell:stellate", "Cell count", "2.1x10^7", "LoebnerEE-1989"],
              ["Source cell:stellate", "Target cell:purkinje", "3, 26", "LoebnerEE-1989"],
              ["Source cell:stellate", "Target cell:stellate", "-", "-"]

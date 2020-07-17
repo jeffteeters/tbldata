@@ -1,4 +1,5 @@
-hide this .. _LoebnerEE-1989:
+.. comment
+   _LoebnerEE-1989:
 
 
 **************
@@ -11,7 +12,7 @@ Notes about :cite:`LoebnerEE-1989` :footcite:`LoebnerEE-1989` .
 .. 
    comment _table_loebner_fig2
 
-.. tbldata:: loebner_fig2
+.. tbldata:: table_loebner_fig2a
    :valrefs: ["From cell:basket", "# cells", "7.5x10^6",  "LoebnerEE-1989"],
              ["From cell:golgi", "# cells", "4.2x10^5", "LoebnerEE-1989"],
              ["From cell:granule", "# cells", "2.2x10^9", "LoebnerEE-1989"],
@@ -21,6 +22,9 @@ Notes about :cite:`LoebnerEE-1989` :footcite:`LoebnerEE-1989` .
              ["From cell:granule", "To cell:golgi", "?, 5.2x10^3", "LoebnerEE-1989"],
              ["From cell:granule", "To cell:purkinje", "200x10^3, 8.5x10^4", "LoebnerEE-1989"]
    :id_prefix: Loe
+
+   Source cell |  Target cell                |  Value    |  Reference
+   purkinje    |  Cell count                 |  1.3x10^6 |  LoebnerEE-1989
 
 
 .. 
