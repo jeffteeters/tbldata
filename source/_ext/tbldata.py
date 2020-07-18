@@ -822,7 +822,7 @@ class TbldataDirective(SphinxDirective):
         # rst.append("") 
         rst.append(title)
         rst.append("")
-        rst.append("The following table has data and references for table :ref:`%s`.  " % table_name)
+        rst.append("The following table has data and references for table :ref:`%s`." % table_name)
         title_nodes = render_rst(self, "\n".join(rst))
         table_nodes = render_rst(self, table_rst)
         # rst = "\n".join(rst) + table_rst
@@ -1410,6 +1410,7 @@ def replace_tbldata_and_tblrender_nodes(app, doctree, fromdocname):
                     break;
             assert node.parent.children[i] == node, "Failed to find index of tbldata node"
             prevp = node.parent.children[i-1]
+            prevp += nodes.Text(' ', ' ')
             prevp += desc_rst[0].children
             # node.replace_self(desc_rst)
     return
