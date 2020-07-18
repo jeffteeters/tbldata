@@ -822,6 +822,7 @@ class TbldataDirective(SphinxDirective):
         # rst.append("") 
         rst.append(title)
         rst.append("")
+        rst.append("The following table has data and references for table :ref:`%s`.  " % table_name)
         title_nodes = render_rst(self, "\n".join(rst))
         table_nodes = render_rst(self, table_rst)
         # rst = "\n".join(rst) + table_rst
@@ -1403,7 +1404,14 @@ def replace_tbldata_and_tblrender_nodes(app, doctree, fromdocname):
             # insert desc_rsts before tables
             # node.children[2:2] = desc_rst
             # node += desc_rest # crashes with:  NotImplementedError: Unknown node: tblrender
-            node.replace_self(desc_rst)
+            # import pdb; pdb.set_trace()
+            for i in range(1, len(node.parent.children)):
+                if node.parent.children[i] == node:
+                    break;
+            assert node.parent.children[i] == node, "Failed to find index of tbldata node"
+            prevp = node.parent.children[i-1]
+            prevp += desc_rst[0].children
+            # node.replace_self(desc_rst)
     return
 
 

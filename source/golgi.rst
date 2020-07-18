@@ -13,10 +13,10 @@ Golgi Cell
              ["Source cell:golgi", "Target cell:golgi", "-", "-"]
    :id_prefix: g
 
-   Source cell | Target cell| Value       | Reference
-   golgi       | Cell count | 4.2x10^5    | LoebnerEE-1989
-   golgi       | basket     | ?, ?        | LoebnerEE-1989
-   golgi       | granule    | 5.2x10^3, ? | LoebnerEE-1989
+   Source cell | Cell count or Target cell| Value       | Reference
+   golgi       | Cell count               | 4.2x10^5    | LoebnerEE-1989
+   golgi       | basket                   | ?, ?        | LoebnerEE-1989
+   golgi       | granule                  | 5.2x10^3, ? | LoebnerEE-1989
 
 
 Data about golgi cells are in this file.
