@@ -22,6 +22,144 @@ pp = pprint.PrettyPrinter(indent=4)
 import json
 
 
+
+# -- Added for APA style
+# -- from: sphinxcontrib-bibtex/test/issue77
+
+from pybtex.style.formatting.unsrt import Style as UnsrtStyle
+from pybtex.style.labels.alpha import LabelStyle as AlphaLabelStyle
+from pybtex.style.sorting import author_year_title
+
+
+from pybtex.plugin import register_plugin
+import os
+from pybtex.style.template import (
+    href, field, optional, sentence, words
+)
+# extensions = ['sphinxcontrib.bibtex']
+# exclude_patterns = ['_build']
+
+
+
+
+class ApaLabelStyle(AlphaLabelStyle):
+    def format_label(self, entry):
+        # import pdb; pdb.set_trace()
+        # from: https://stackoverflow.com/questions/55942749/how-do-you-change-the-style-of-pybtex-references-in-sphinx
+        label = entry.key
+        return label
+
+class FootApaStyle(UnsrtStyle):
+    def format_web_refs(self, e):
+        # based on urlbst output.web.refs
+        return sentence [
+            optional [ self.format_url(e) ],
+            optional [ self.format_eprint(e) ],
+            optional [ self.format_pubmed(e) ],
+            optional [ self.format_doi(e) ],
+            # following added for pseudo cerebellum
+            optional [ self.format_pdf(e) ],
+            # optional [ self.format_rst(e) ],  # don't include rst link on footcite
+            ]
+
+    def format_pdf(self, entry):
+        # if entry.key == "JaeckelLA-1989a":
+        #     print("found JaeckelLA-1989a key")
+        # print("In format_pdf, html_static_path2=%s" % html_static_path2)
+        global saved_app
+        base_path = saved_app.srcdir
+        html_static_path = saved_app.config["html_static_path"]
+        # import pdb; pdb.set_trace()
+        pdf_name = entry.key + ".pdf"
+        search_path = os.path.join(base_path, html_static_path[0], "papers", pdf_name)
+        # search_path = "./_static/papers/" + pdf_name
+        if os.path.isfile(search_path):
+            print("----------- Found %s" % pdf_name)
+            target_path = "../_static/papers/" + pdf_name
+            return words [
+                'pdf:',
+                href [ target_path, pdf_name ]
+            ]
+        else:
+            return words [""]
+
+        scratch_code = """
+        # create link to pdf file if present
+        # cwd = os.getcwd()
+        # pdf_name = field('pdf', raw=True)
+        pdf_name = "none"  # ignore pdf tag for now, can't figure out how to extract it
+        # import pdb; pdb.set_trace()
+        target_path = "./_static/papers/" + pdf_name
+        if os.path.isfile(target_path):
+            pass
+        else:
+            pdf_name = entry.key + ".pdf"
+            target_path = "../_static/papers/" + pdf_name
+            if os.path.isfile(target_path):
+                pass
+            else:
+                # didn't find pdf
+                return words [""]
+        # found pdf
+        print("----------- Found %s", pdf_name)
+        return words [
+            'pdf:',
+            href [ target_path, pdf_name ]
+        ]
+"""
+
+    def format_rst(self, entry):
+        # create link to rst file if present
+        global saved_app
+        base_path = saved_app.srcdir
+        rst_name = entry.key + ".rst"
+        # if rst_name == "JaeckelLA-1989a.rst":
+        #     print("found JaeckelLA-1989a key")
+        #     import pdb; pdb.set_trace()
+        # search_path = "./references/" + rst_name
+        search_path = os.path.join(base_path, "references", rst_name)
+        if os.path.isfile(search_path):
+            html_name = entry.key + ".html"
+            target_path = "../references/" + html_name
+            print("----------- Found %s", rst_name)   
+            return words [
+                'Notes:',
+                href [ target_path, html_name ]
+            ]
+        else:
+            return words [""]
+
+class ApaStyle(FootApaStyle):
+    default_label_style = 'apa'
+    default_sorting_style = 'author_year_title'
+
+    def format_web_refs(self, e):
+        # based on urlbst output.web.refs
+        return sentence [
+            optional [ self.format_url(e) ],
+            optional [ self.format_eprint(e) ],
+            optional [ self.format_pubmed(e) ],
+            optional [ self.format_doi(e) ],
+            # following added for pseudo cerebellum
+            optional [ self.format_pdf(e) ],
+            optional [ self.format_rst(e) ],   # include information about note page
+            ]
+
+
+
+register_plugin('pybtex.style.labels', 'apa', ApaLabelStyle)
+register_plugin('pybtex.style.formatting', 'apastyle', ApaStyle)
+register_plugin('pybtex.style.formatting', 'footapastyle', FootApaStyle)
+# register_plugin('pybtex.style.sorting','apastyle', ApaStyle)
+register_plugin('pybtex.style.sorting','apastyle', author_year_title)
+
+
+
+
+
+
+
+
 class tbldata(nodes.Admonition, nodes.Element):
     pass
 
@@ -1722,10 +1860,14 @@ For more data see :ref:`stellate` link.
     return node.children
 
 
-
+saved_app = None
 def setup(app):
     # app.add_config_value('tbldata_include_tbldata', False, 'html')
+    # save app so can get config value and source directory for building links to PDF files
+    global saved_app
+    saved_app = app
     print("Starting setup in tbldata.py")
+    # app.add_config_value('filltableref_base_path', False, 'html')
 
     app.add_node(tblrender)
     app.add_node(tbldata,
